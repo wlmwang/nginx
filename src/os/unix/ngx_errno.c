@@ -24,11 +24,17 @@
  *    causing false bug reports.
  */
 
-
+//Unix全局系统错误字符串数组 index为错误errno
 static ngx_str_t  *ngx_sys_errlist;
 static ngx_str_t   ngx_unknown_error = ngx_string("Unknown error");
 
-
+/**
+ * @param [in] err 错误编号
+ * @param [out] errstr 错误字符串
+ * @param [out] size 错误字符串长度
+ * @return int 指向结尾指针
+ * 获得错误字符串
+ */
 u_char *
 ngx_strerror(ngx_err_t err, u_char *errstr, size_t size)
 {
@@ -41,7 +47,10 @@ ngx_strerror(ngx_err_t err, u_char *errstr, size_t size)
     return ngx_cpymem(errstr, msg->data, size);
 }
 
-
+/**
+ * @return int NGX_OK|NGX_ERROR
+ * 初始化unix系统中错误信息ngx_sys_errlist数组
+ */
 ngx_int_t
 ngx_strerror_init(void)
 {
@@ -55,6 +64,10 @@ ngx_strerror_init(void)
      * malloc() is used and possible errors are logged using strerror().
      */
 
+    /**
+     * \file ../../objs/ngx_auto_config.h
+     * #define NGX_SYS_NERR  132
+     */
     len = NGX_SYS_NERR * sizeof(ngx_str_t);
 
     ngx_sys_errlist = malloc(len);

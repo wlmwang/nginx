@@ -17,15 +17,15 @@ static ngx_int_t ngx_test_lockfile(u_char *file, ngx_log_t *log);
 static void ngx_clean_old_cycles(ngx_event_t *ev);
 
 
-volatile ngx_cycle_t  *ngx_cycle;
+volatile ngx_cycle_t  *ngx_cycle;   //全局cycle对象
 ngx_array_t            ngx_old_cycles;
 
 static ngx_pool_t     *ngx_temp_pool;
 static ngx_event_t     ngx_cleaner_event;
 
-ngx_uint_t             ngx_test_config;
-ngx_uint_t             ngx_dump_config;
-ngx_uint_t             ngx_quiet_mode;
+ngx_uint_t             ngx_test_config;     //启动参数-t/-T
+ngx_uint_t             ngx_dump_config;     //启动参数-T
+ngx_uint_t             ngx_quiet_mode;      //启动参数-q
 
 
 /* STUB NAME */

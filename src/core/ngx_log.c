@@ -313,7 +313,11 @@ ngx_log_errno(u_char *buf, u_char *last, ngx_err_t err)
     return buf;
 }
 
-
+/**
+ * @param [in] prefix ngx服务目录 默认/usr/local/nginx
+ * @return * 日志指针
+ * 初始化日志对象，其主要工作为计算错误日志文件绝对路径并打开日志
+ */
 ngx_log_t *
 ngx_log_init(u_char *prefix)
 {

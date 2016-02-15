@@ -13,67 +13,70 @@
 #define _GNU_SOURCE             /* pread(), pwrite(), gethostname() */
 #endif
 
-#define _FILE_OFFSET_BITS  64
+#define _FILE_OFFSET_BITS  64	//off_t 突破单文件4G大小限制，系统库sys/types.h中使用
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <stdarg.h>
-#include <stddef.h>             /* offsetof() */
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <errno.h>
-#include <string.h>
-#include <signal.h>
-#include <pwd.h>
-#include <grp.h>
-#include <dirent.h>
-#include <glob.h>
+#include <sys/types.h>			//各种类型定义，包括u_char/u_int/gid_t/pid_t/off_t/uid_t/size_t/ssize_t/mode_t/tm/clock_t
+#include <sys/time.h>			//时间相关
+#include <unistd.h>				//POSIX标准库 win平台<windows.h>
+#include <stdarg.h>				//可变参数表 
+#include <stddef.h>             /* offsetof() */	//#define offsetof(s,m) (size_t)&(((s *)0)->m) 计算struct成员变量偏移量
+#include <stdio.h>				//标准I/O库
+#include <stdlib.h>				//公用函数
+#include <ctype.h>				//字符类型 tolower isdigit
+#include <errno.h>				//定义错误码 注意没有errno=0的
+#include <string.h>				//字符串处理 memset memcpy memccpy
+#include <signal.h>				//信号机制支持 
+#include <pwd.h>				//用户口令
+#include <grp.h>				//用户组 
+#include <dirent.h>				//目录处理
+#include <glob.h>				//路径名模式匹配类型 
 #include <sys/vfs.h>            /* statfs() */
 
-#include <sys/uio.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/uio.h>			//矢量I/O操作 
+#include <sys/stat.h>			//文件状态 
+#include <fcntl.h>				//文件控制
 
-#include <sys/wait.h>
-#include <sys/mman.h>
-#include <sys/resource.h>
-#include <sched.h>
+#include <sys/wait.h>			//进程控制 
+#include <sys/mman.h>			//内存管理
+#include <sys/resource.h>		//资源操作 
+#include <sched.h>				//执行调度 sleep等
 
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <sys/socket.h>			//套接字
+#include <netinet/in.h>			//INTERNET地址族 
 #include <netinet/tcp.h>        /* TCP_NODELAY, TCP_CORK */
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/un.h>
+#include <arpa/inet.h>			//INTERNET定义 
+#include <netdb.h>				//网络数据库操作 
+#include <sys/un.h>				//UNIX域套接字定义 
 
 #include <time.h>               /* tzset() */
 #include <malloc.h>             /* memalign() */
 #include <limits.h>             /* IOV_MAX */
-#include <sys/ioctl.h>
-#include <crypt.h>
+#include <sys/ioctl.h>			//I/O操作库
+#include <crypt.h>				//加解密
 #include <sys/utsname.h>        /* uname() */
 
-
+/**
+ * \file ../../objs/ngx_auto_config.h
+ * gcc编译环境相关、configure参数相关
+ */
 #include <ngx_auto_config.h>
 
 
 #if (NGX_HAVE_POSIX_SEM)
-#include <semaphore.h>
+#include <semaphore.h>		//信号量
 #endif
 
 
 #if (NGX_HAVE_SYS_PRCTL_H)
-#include <sys/prctl.h>
+#include <sys/prctl.h>		//线程控制库，线程名等
 #endif
 
 
 #if (NGX_HAVE_SENDFILE64)
-#include <sys/sendfile.h>
+#include <sys/sendfile.h>		//amd64 直接支持sendfile 4G?
 #else
 extern ssize_t sendfile(int s, int fd, int32_t *offset, size_t size);
-#define NGX_SENDFILE_LIMIT  0x80000000
+#define NGX_SENDFILE_LIMIT  0x80000000 	//sendfile大小限制 4G？
 #endif
 
 
@@ -97,8 +100,7 @@ typedef struct iocb  ngx_aiocb_t;
 #endif
 
 
-#define NGX_LISTEN_BACKLOG        511
-
+#define NGX_LISTEN_BACKLOG        511 	//listen socket backlog长度
 
 #ifndef NGX_HAVE_SO_SNDLOWAT
 /* setsockopt(SO_SNDLOWAT) returns ENOPROTOOPT */
@@ -107,11 +109,11 @@ typedef struct iocb  ngx_aiocb_t;
 
 
 #ifndef NGX_HAVE_INHERITED_NONBLOCK
-#define NGX_HAVE_INHERITED_NONBLOCK  0
+#define NGX_HAVE_INHERITED_NONBLOCK  0		//listen socket fd是否可继承
 #endif
 
 
-#define NGX_HAVE_OS_SPECIFIC_INIT    1
+#define NGX_HAVE_OS_SPECIFIC_INIT    1		//特定初始化。使用uname获取os信息，包括操作系统名/操作系统版本
 #define ngx_debug_init()
 
 

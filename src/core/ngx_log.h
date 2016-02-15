@@ -12,7 +12,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+//日志级别定义
 #define NGX_LOG_STDERR            0
 #define NGX_LOG_EMERG             1
 #define NGX_LOG_ALERT             2
@@ -23,6 +23,7 @@
 #define NGX_LOG_INFO              7
 #define NGX_LOG_DEBUG             8
 
+//调试日志类型的定义：核心模块调试日志， 分配日志调试， 互斥锁相关的日志调试， 事件日志调试， HTTP日志调试， MAIL日志调试， MYSQL日志调试。
 #define NGX_LOG_DEBUG_CORE        0x010
 #define NGX_LOG_DEBUG_ALLOC       0x020
 #define NGX_LOG_DEBUG_MUTEX       0x040
@@ -48,15 +49,22 @@ typedef void (*ngx_log_writer_pt) (ngx_log_t *log, ngx_uint_t level,
     u_char *buf, size_t len);
 
 
+/**
+ *  日志链表
+ */
 struct ngx_log_s {
     ngx_uint_t           log_level;
+    //打开的文件
     ngx_open_file_t     *file;
 
+    //原子单元链接
     ngx_atomic_uint_t    connection;
 
     time_t               disk_full_time;
 
+    //日志处理器
     ngx_log_handler_pt   handler;
+    //日志数据
     void                *data;
 
     ngx_log_writer_pt    writer;
@@ -67,7 +75,7 @@ struct ngx_log_s {
      * the static strings and in the "u_char *" case we have to override
      * their types all the time
      */
-
+    //操作  
     char                *action;
 
     ngx_log_t           *next;

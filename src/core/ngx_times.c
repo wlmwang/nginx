@@ -20,9 +20,12 @@
 
 #define NGX_TIME_SLOTS   64
 
-static ngx_uint_t        slot;
-static ngx_atomic_t      ngx_time_lock;
+static ngx_uint_t        slot;          //当前时间片索引
+static ngx_atomic_t      ngx_time_lock; //时间片全局锁
 
+/**
+ * 以下为各时间片当前值，对应模块会引用，故需ngx_time.h中申明为extern
+ */
 volatile ngx_msec_t      ngx_current_msec;
 volatile ngx_time_t     *ngx_cached_time;
 volatile ngx_str_t       ngx_cached_err_log_time;
@@ -38,11 +41,13 @@ volatile ngx_str_t       ngx_cached_syslog_time;
  * they must not be called by a signal handler, so we use the cached
  * GMT offset value. Fortunately the value is changed only two times a year.
  */
-
-static ngx_int_t         cached_gmtoff;
+static ngx_int_t         cached_gmtoff; ////时区，北京"+8" 为480
 #endif
 
-static ngx_time_t        cached_time[NGX_TIME_SLOTS];
+/**
+ * 以下为个时间片数组 包括时间片本身，以及对应字符串形式
+ */
+static ngx_time_t        cached_time[NGX_TIME_SLOTS];   //时间片数组（循环使用） 时间cache核心数组
 static u_char            cached_err_log_time[NGX_TIME_SLOTS]
                                     [sizeof("1970/09/28 12:00:00")];
 static u_char            cached_http_time[NGX_TIME_SLOTS]
@@ -62,15 +67,16 @@ static char  *months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 void
 ngx_time_init(void)
 {
+    //都不包括结尾NULL
     ngx_cached_err_log_time.len = sizeof("1970/09/28 12:00:00") - 1;
     ngx_cached_http_time.len = sizeof("Mon, 28 Sep 1970 06:00:00 GMT") - 1;
     ngx_cached_http_log_time.len = sizeof("28/Sep/1970:12:00:00 +0600") - 1;
     ngx_cached_http_log_iso8601.len = sizeof("1970-09-28T12:00:00+06:00") - 1;
     ngx_cached_syslog_time.len = sizeof("Sep 28 12:00:00") - 1;
 
-    ngx_cached_time = &cached_time[0];
+    ngx_cached_time = &cached_time[0];  //默认指向第一个时间片
 
-    ngx_time_update();
+    ngx_time_update();  //更新时间片
 }
 
 
@@ -78,12 +84,17 @@ void
 ngx_time_update(void)
 {
     u_char          *p0, *p1, *p2, *p3, *p4;
+    /**
+     * file ../../os/unix/ngx_time.h
+     * typedef struct tm  ngx_tm_t;
+     */
     ngx_tm_t         tm, gmt;
     time_t           sec;
     ngx_uint_t       msec;
     ngx_time_t      *tp;
     struct timeval   tv;
 
+    //写锁
     if (!ngx_trylock(&ngx_time_lock)) {
         return;
     }
@@ -95,21 +106,23 @@ ngx_time_update(void)
 
     ngx_current_msec = (ngx_msec_t) sec * 1000 + msec;
 
-    tp = &cached_time[slot];
+    tp = &cached_time[slot];    //当前时间片节点
 
+    //间隔小于1s，更新当前时间片毫秒值
     if (tp->sec == sec) {
         tp->msec = msec;
         ngx_unlock(&ngx_time_lock);
         return;
     }
 
+    //间隔大于1s，增加时间片节点
     if (slot == NGX_TIME_SLOTS - 1) {
         slot = 0;
     } else {
         slot++;
     }
 
-    tp = &cached_time[slot];
+    tp = &cached_time[slot];    //下一时间片（新增的时间片）
 
     tp->sec = sec;
     tp->msec = msec;
@@ -123,7 +136,7 @@ ngx_time_update(void)
                        week[gmt.ngx_tm_wday], gmt.ngx_tm_mday,
                        months[gmt.ngx_tm_mon - 1], gmt.ngx_tm_year,
                        gmt.ngx_tm_hour, gmt.ngx_tm_min, gmt.ngx_tm_sec);
-
+//计算时区|本地时间
 #if (NGX_HAVE_GETTIMEZONE)
 
     tp->gmtoff = ngx_gettimezone();
@@ -175,7 +188,13 @@ ngx_time_update(void)
     (void) ngx_sprintf(p4, "%s %2d %02d:%02d:%02d",
                        months[tm.ngx_tm_mon - 1], tm.ngx_tm_mday,
                        tm.ngx_tm_hour, tm.ngx_tm_min, tm.ngx_tm_sec);
-
+    
+    /**
+     * 内存屏障（防止内存乱序访问），主要由于此函数会出现在信号捕捉中
+     * 让编译器不要将其后面的语句进行优化、也不要打乱其执行顺序。
+     * 不然可能造成p、p1、p2、p3、p4不一致。当然严格来说，可能还会不一致，当误差的概率小的多，毕竟只有几个时钟周期。
+     * #define ngx_memory_barrier() __asm__ volatile ("" ::: "memory")
+     */
     ngx_memory_barrier();
 
     ngx_cached_time = tp;

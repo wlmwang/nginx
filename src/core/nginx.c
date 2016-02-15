@@ -4,9 +4,21 @@
  * Copyright (C) Nginx, Inc.
  */
 
-
+/**
+ * os环境相关配置
+ * gcc环境相关配置，包括configure参数
+ * include系统库
+ */
 #include <ngx_config.h>
+/**
+ * ngx核心配置
+ * include项目库（数据结构/全局变量/对应头文件...）
+ */
 #include <ngx_core.h>
+/**
+ * ngx版本号
+ * NGINX_VAR环境变量
+ */
 #include <nginx.h>
 
 
@@ -173,45 +185,90 @@ static char        *ngx_signal;
 
 static char **ngx_os_environ;
 
-
+/**
+ * ngx三种启动方式：1.启动新的nginx 2.reload配置 3.热替换nginx代码
+ */
 int ngx_cdecl
 main(int argc, char *const *argv)
 {
+    /**
+     *  \file ngx_buf.h|c
+     *  
+     */
     ngx_buf_t        *b;
+    /**
+     *  \file ngx_log.h|c
+     *  
+     */
     ngx_log_t        *log;
     ngx_uint_t        i;
+    /**
+     *  \file ngx_cycle.h|c
+     *  cycle对象
+     */
     ngx_cycle_t      *cycle, init_cycle;
+    /**
+     *  \file ngx_conf_file.h|c
+     *  程序运行时配置值临时变量
+     */
     ngx_conf_dump_t  *cd;
+    /**
+     *  \file ngx_cycle.h|c
+     *  ngx core命令集(与配置文件中全局域一一对应)
+     */
     ngx_core_conf_t  *ccf;
 
-    ngx_debug_init();
+    ngx_debug_init();   //linux为空
 
+    /**
+     *  \file ../../os/unix/ngx_errno.h|c
+     *  初始化ngx_sys_errlist错误信息数组(线程安全考虑)
+     *  win32为空
+     */
     if (ngx_strerror_init() != NGX_OK) {
         return 1;
     }
 
+    //解析启动参数（带-h/-v/-V/-t/-T/-p/-c等参数启动时，设置对应全局变量）
     if (ngx_get_options(argc, argv) != NGX_OK) {
         return 1;
     }
 
-    if (ngx_show_version) {
+    if (ngx_show_version) { //-?/-h/-v/-V
         ngx_show_version_info();
 
-        if (!ngx_test_config) {
+        if (!ngx_test_config) { //退出返回，除-t/-T参数
             return 0;
         }
     }
 
+    /**
+     *  \file ../../os/unix/ngx_os.h
+     *  ngx最大socket数量限制
+     */
     /* TODO */ ngx_max_sockets = -1;
 
+    /**
+     *  \file ngx_times.h|c
+     *  时间片初始化（性能上的考虑）
+     */
     ngx_time_init();
 
 #if (NGX_PCRE)
     ngx_regex_init();
 #endif
 
+    /**
+     *  \file ../../os/unix/ngx_process.h|c
+     *  extern ngx_pid_t ngx_pid;
+     *  #define ngx_getpid getpid
+     */
     ngx_pid = ngx_getpid();
-
+    
+    /**
+     *  \file ngx_log.h|c
+     *  初始化日志为默认配置
+     */
     log = ngx_log_init(ngx_prefix);
     if (log == NULL) {
         return 1;
@@ -231,19 +288,29 @@ main(int argc, char *const *argv)
     init_cycle.log = log;
     ngx_cycle = &init_cycle;
 
+    /**
+     *  \file ngx_palloc.h|c
+     *  创建节点大小为1024的内存池对象
+     */
     init_cycle.pool = ngx_create_pool(1024, log);
     if (init_cycle.pool == NULL) {
         return 1;
     }
 
+    //保存启动参数信息到全局变量中（ngx_os_argv/ngx_argv/ngx_argc/ngx_os_environ）
     if (ngx_save_argv(&init_cycle, argc, argv) != NGX_OK) {
         return 1;
     }
 
+    //初始化init_cycle的prefix, conf_prefix, conf_file, conf_param等字段
     if (ngx_process_options(&init_cycle) != NGX_OK) {
         return 1;
     }
 
+    /**
+     *  \file ../../os/unix/ngx_posix_init.c
+     *  初始化系统相关变量 ngx_pagesize,ngx_cacheline_size,ngx_inherited_nonblocking等全局变量
+     */
     if (ngx_os_init(log) != NGX_OK) {
         return 1;
     }
@@ -251,11 +318,15 @@ main(int argc, char *const *argv)
     /*
      * ngx_crc32_table_init() requires ngx_cacheline_size set in ngx_os_init()
      */
-
+    /**
+     *  \file ngx_crc32.c
+     *  \brief 初始化CRC表
+     */
     if (ngx_crc32_table_init() != NGX_OK) {
         return 1;
     }
 
+    //热继承全局环境变量存储的Listen socket到init_cycle.listening
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
@@ -362,7 +433,9 @@ main(int argc, char *const *argv)
     return 0;
 }
 
-
+/**
+ * 输出版本信息|帮助信息|--configure信息
+ */
 static void
 ngx_show_version_info()
 {
@@ -425,15 +498,24 @@ ngx_show_version_info()
     }
 }
 
-
+/**
+ *  @param [in/out] cycle cycle对象
+ *  @return NGX_OK
+ *  
+ *  通过环境变量，历史cycle的listen socket fd的值，继承到新的cycle.listening数组中并检测fd
+ */
 static ngx_int_t
 ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 {
     u_char           *p, *v, *inherited;
     ngx_int_t         s;
+    /**
+     *  \file ngx_connection.h
+     *  Listen socket struct
+     */ 
     ngx_listening_t  *ls;
 
-    inherited = (u_char *) getenv(NGINX_VAR);
+    inherited = (u_char *) getenv(NGINX_VAR); //环境变量 #define NGINX_VAR "NGINX"
 
     if (inherited == NULL) {
         return NGX_OK;
@@ -442,6 +524,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                   "using inherited sockets from \"%s\"", inherited);
 
+    //初始化数组容量为10个ngx_listening_t结构
     if (ngx_array_init(&cycle->listening, cycle->pool, 10,
                        sizeof(ngx_listening_t))
         != NGX_OK)
@@ -449,9 +532,10 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+    //inherited是一个以':'或者';'分割开的listen socket fd字符串
     for (p = inherited, v = p; *p; p++) {
         if (*p == ':' || *p == ';') {
-            s = ngx_atoi(v, p - v);
+            s = ngx_atoi(v, p - v); //string -> int
             if (s == NGX_ERROR) {
                 ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
                               "invalid socket number \"%s\" in " NGINX_VAR
@@ -462,19 +546,27 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 
             v = p + 1;
 
-            ls = ngx_array_push(&cycle->listening);
+            ls = ngx_array_push(&cycle->listening); //返回数组可用元素地址
             if (ls == NULL) {
                 return NGX_ERROR;
             }
 
             ngx_memzero(ls, sizeof(ngx_listening_t));
 
-            ls->fd = (ngx_socket_t) s;
+            ls->fd = (ngx_socket_t) s;  //typedef int ngx_socket_t;  继承Listen socket到cycle->listening数组中
         }
     }
 
+    /**
+     *  \file ../../os/unix/ngx_process_cycle.c
+     *  全局继承标识位
+     */
     ngx_inherited = 1;
 
+    /**
+     *  \file ngx_connection.c
+     *  \brief 检测fd
+     */
     return ngx_set_inherited_sockets(cycle);
 }
 
@@ -848,14 +940,20 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
     return NGX_OK;
 }
 
-
+/**
+ *  
+ *  @param [in/out] cycle cycle对象
+ *  @return int NGX_OK|NGX_ERROR
+ *  
+ *  设置cycle一系列与启动、配置相关字段
+ */
 static ngx_int_t
 ngx_process_options(ngx_cycle_t *cycle)
 {
     u_char  *p;
     size_t   len;
 
-    if (ngx_prefix) {
+    if (ngx_prefix) { //-p 启动参数
         len = ngx_strlen(ngx_prefix);
         p = ngx_prefix;
 
@@ -876,9 +974,9 @@ ngx_process_options(ngx_cycle_t *cycle)
 
     } else {
 
-#ifndef NGX_PREFIX
-
-        p = ngx_pnalloc(cycle->pool, NGX_MAX_PATH);
+#ifndef NGX_PREFIX  //未给出configure的--prefix参数
+        //当前路径为赋给conf_prefix
+        p = ngx_pnalloc(cycle->pool, NGX_MAX_PATH); //4096
         if (p == NULL) {
             return NGX_ERROR;
         }
@@ -900,27 +998,29 @@ ngx_process_options(ngx_cycle_t *cycle)
 #else
 
 #ifdef NGX_CONF_PREFIX
-        ngx_str_set(&cycle->conf_prefix, NGX_CONF_PREFIX);
+        ngx_str_set(&cycle->conf_prefix, NGX_CONF_PREFIX);  //"conf/"
 #else
-        ngx_str_set(&cycle->conf_prefix, NGX_PREFIX);
+        ngx_str_set(&cycle->conf_prefix, NGX_PREFIX); //"/usr/local/nginx/"
 #endif
-        ngx_str_set(&cycle->prefix, NGX_PREFIX);
+        ngx_str_set(&cycle->prefix, NGX_PREFIX);  //"/usr/local/nginx/"
 
 #endif
     }
 
-    if (ngx_conf_file) {
+    if (ngx_conf_file) {  //-c参数
         cycle->conf_file.len = ngx_strlen(ngx_conf_file);
         cycle->conf_file.data = ngx_conf_file;
 
     } else {
-        ngx_str_set(&cycle->conf_file, NGX_CONF_PATH);
+        ngx_str_set(&cycle->conf_file, NGX_CONF_PATH);  //"conf/nginx.conf"
     }
 
+    //设置cycle->conf_file配置文件绝对路径
     if (ngx_conf_full_name(cycle, &cycle->conf_file, 0) != NGX_OK) {
         return NGX_ERROR;
     }
 
+    //设置cycle->conf_prefix配置文件前缀路径
     for (p = cycle->conf_file.data + cycle->conf_file.len - 1;
          p > cycle->conf_file.data;
          p--)
@@ -932,13 +1032,13 @@ ngx_process_options(ngx_cycle_t *cycle)
         }
     }
 
-    if (ngx_conf_params) {
+    if (ngx_conf_params) {  //启动参数-g
         cycle->conf_param.len = ngx_strlen(ngx_conf_params);
         cycle->conf_param.data = ngx_conf_params;
     }
 
-    if (ngx_test_config) {
-        cycle->log->log_level = NGX_LOG_INFO;
+    if (ngx_test_config) {  //启动参数-t -T
+        cycle->log->log_level = NGX_LOG_INFO; //#define NGX_LOG_INFO 7
     }
 
     return NGX_OK;

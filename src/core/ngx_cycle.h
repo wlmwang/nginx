@@ -26,9 +26,18 @@ typedef struct ngx_shm_zone_s  ngx_shm_zone_t;
 
 typedef ngx_int_t (*ngx_shm_zone_init_pt) (ngx_shm_zone_t *zone, void *data);
 
+/**
+ * 共享内存zone
+ */
 struct ngx_shm_zone_s {
+    //指向自定义数据结构，可能指向本地地址
     void                     *data;
+    /**
+     *  \file ../../os/unix/ngx_shmem.h
+     *  \brief 真正的共享内存
+     */ 
     ngx_shm_t                 shm;
+    //初始化函数
     ngx_shm_zone_init_pt      init;
     void                     *tag;
     ngx_uint_t                noreuse;  /* unsigned  noreuse:1; */
@@ -121,7 +130,7 @@ ngx_shm_zone_t *ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name,
     size_t size, void *tag);
 
 
-extern volatile ngx_cycle_t  *ngx_cycle;
+extern volatile ngx_cycle_t  *ngx_cycle;    //全局cycle对象
 extern ngx_array_t            ngx_old_cycles;
 extern ngx_module_t           ngx_core_module;
 extern ngx_uint_t             ngx_test_config;
