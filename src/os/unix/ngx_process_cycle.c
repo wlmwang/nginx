@@ -817,6 +817,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
     for ( ;; ) {
 
+		//如果进程退出,关闭所有连接
         if (ngx_exiting) {
             ngx_event_cancel_timers();
 
@@ -832,18 +833,22 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
         ngx_process_events_and_timers(cycle);
 
+		//收到NGX_CMD_TERMINATE命令
         if (ngx_terminate) {
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "exiting");
 
+			//清理后进程退出，会调用所有模块的钩子exit_process
             ngx_worker_process_exit(cycle);
         }
 
+		//收到NGX_CMD_QUIT命令
         if (ngx_quit) {
             ngx_quit = 0;
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                           "gracefully shutting down");
             ngx_setproctitle("worker process is shutting down");
-
+			
+			//如果进程没有"正在退出"
             if (!ngx_exiting) {
                 ngx_exiting = 1;
                 ngx_close_listening_sockets(cycle);
@@ -851,6 +856,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
             }
         }
 
+		//收到NGX_CMD_REOPEN命令，重新打开log
         if (ngx_reopen) {
             ngx_reopen = 0;
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "reopening logs");
@@ -1030,7 +1036,8 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     /**
      * 将其他进程的channel[1]关闭，自己的除外
      * 
-     * 关闭worker进程所继承的的channel[1]这个打开的套接字描述符
+     * 当前worker会使用其他worker的channel[0]句柄发送消息，
+	 * 使用当前worker的channel[1]句柄监听可读事件
      */
     for (n = 0; n < ngx_last_process; n++) {
 
@@ -1070,6 +1077,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
      * ngx_channel就是进程自身的channel[1]，用来读取的socket，在ngx_start_worker_processes()函数中，ngx_channel = ngx_processes[s].channel[1];
      * ngx_channel_handler处理从channel中收到的信号，当事件触发时，调用这个方法  
      */
+	//当前worker的channel[1]句柄监听可读事件
     if (ngx_add_channel_event(cycle, ngx_channel, NGX_READ_EVENT,
                               ngx_channel_handler)
         == NGX_ERROR)

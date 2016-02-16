@@ -102,7 +102,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 {
     u_long     on;
     ngx_pid_t  pid;
-    ngx_int_t  s;
+    ngx_int_t  s;	//将要创建的子进程在进程表中的位置
 
     if (respawn >= 0) {     //指定重启具体进程表索引中的进程
         s = respawn;
@@ -127,7 +127,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     if (respawn != NGX_PROCESS_DETACHED) {
 
         /* Solaris 9 still has no AF_LOCAL */
-
+		
+		//创建一对已经连接的无名socket
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, ngx_processes[s].channel) == -1)
         {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
@@ -198,7 +199,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
             ngx_close_channel(ngx_processes[s].channel, cycle->log);
             return NGX_INVALID_PID;
         }
-
+		
+		//用于监听可读时间的socket
         ngx_channel = ngx_processes[s].channel[1];  //设置当前的进程的通道
 
     } else {
