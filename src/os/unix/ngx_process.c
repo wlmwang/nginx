@@ -10,11 +10,14 @@
 #include <ngx_event.h>
 #include <ngx_channel.h>
 
-
+//ngx服务器的启动、停止和升级都是通过信号控制的
 typedef struct {
     int     signo;
+    //信号的字符串表现形式，如"SIGIO"
     char   *signame;
+    //信号的名称，如"stop"
     char   *name;
+    //信号处理函数
     void  (*handler)(int signo);
 } ngx_signal_t;
 
@@ -30,39 +33,40 @@ int              ngx_argc;
 char           **ngx_argv;
 char           **ngx_os_argv;
 
-ngx_int_t        ngx_process_slot;
-ngx_socket_t     ngx_channel;
-ngx_int_t        ngx_last_process;
-ngx_process_t    ngx_processes[NGX_MAX_PROCESSES];
+//进程表相关
+ngx_int_t        ngx_process_slot;  //已分配到最后一个进程表索引
+ngx_socket_t     ngx_channel;       //worker进程的channel[1]通道
+ngx_int_t        ngx_last_process;  //进程表最后一个索引
+ngx_process_t    ngx_processes[NGX_MAX_PROCESSES];  //worker进程表
 
-
+//ngx服务器程序将所有可能遇到的信号保存在一个结构数组中(12个)
 ngx_signal_t  signals[] = {
-    { ngx_signal_value(NGX_RECONFIGURE_SIGNAL),
+    { ngx_signal_value(NGX_RECONFIGURE_SIGNAL),     //重新读取配置信息
       "SIG" ngx_value(NGX_RECONFIGURE_SIGNAL),
       "reload",
       ngx_signal_handler },
 
-    { ngx_signal_value(NGX_REOPEN_SIGNAL),
+    { ngx_signal_value(NGX_REOPEN_SIGNAL),          //重新运行工作进程
       "SIG" ngx_value(NGX_REOPEN_SIGNAL),
       "reopen",
       ngx_signal_handler },
 
-    { ngx_signal_value(NGX_NOACCEPT_SIGNAL),
+    { ngx_signal_value(NGX_NOACCEPT_SIGNAL),        //工作进程不接受事件
       "SIG" ngx_value(NGX_NOACCEPT_SIGNAL),
       "",
       ngx_signal_handler },
 
-    { ngx_signal_value(NGX_TERMINATE_SIGNAL),
+    { ngx_signal_value(NGX_TERMINATE_SIGNAL),       //工作进程终止
       "SIG" ngx_value(NGX_TERMINATE_SIGNAL),
       "stop",
       ngx_signal_handler },
 
-    { ngx_signal_value(NGX_SHUTDOWN_SIGNAL),
+    { ngx_signal_value(NGX_SHUTDOWN_SIGNAL),        //结束网络通信，进程退出
       "SIG" ngx_value(NGX_SHUTDOWN_SIGNAL),
       "quit",
       ngx_signal_handler },
 
-    { ngx_signal_value(NGX_CHANGEBIN_SIGNAL),
+    { ngx_signal_value(NGX_CHANGEBIN_SIGNAL),       //热升级ngx运行程序
       "SIG" ngx_value(NGX_CHANGEBIN_SIGNAL),
       "",
       ngx_signal_handler },
@@ -82,7 +86,16 @@ ngx_signal_t  signals[] = {
     { 0, NULL, "", NULL }
 };
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @param [in] proc ngx_worker_process_cycle，子进程入口函数。
+ *  @param [in] data 子进程worker是主进程master启动的第几个进程，0起始
+ *  @param [in] name 子进程worker名称
+ *  @param [in] respawn  进程启动模式|指定重启具体进程表索引中进程
+ *  @return int 子进程pid_t
+ *  
+ *  生成(fork)工作[worker]子进程
+ */
 ngx_pid_t
 ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     char *name, ngx_int_t respawn)
@@ -91,10 +104,11 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     ngx_pid_t  pid;
     ngx_int_t  s;
 
-    if (respawn >= 0) {
+    if (respawn >= 0) {     //指定重启具体进程表索引中的进程
         s = respawn;
 
     } else {
+        //找到一个空闲进程表
         for (s = 0; s < ngx_last_process; s++) {
             if (ngx_processes[s].pid == -1) {
                 break;
@@ -109,7 +123,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         }
     }
 
-
+    //如果类型为NGX_PROCESS_DETACHED，则说明是热代码替换，因此不需要新建socketpair
     if (respawn != NGX_PROCESS_DETACHED) {
 
         /* Solaris 9 still has no AF_LOCAL */
@@ -142,6 +156,10 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
             return NGX_INVALID_PID;
         }
 
+        /**
+         * 设置第一个描述符的异步IO通知机制（FIOASYNC现已被O_ASYNC标志位取代）
+         * SIGIO用于在不想或不能使用 polling (select, epoll 等方式) 机制的情况下，异步获取 IO 事件。
+         */
         on = 1;
         if (ioctl(ngx_processes[s].channel[0], FIOASYNC, &on) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
@@ -150,13 +168,21 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
             return NGX_INVALID_PID;
         }
 
-        if (fcntl(ngx_processes[s].channel[0], F_SETOWN, ngx_pid) == -1) {
+        /**
+         * 设置将要在文件描述符channel[0]上接收SIGIO 或 SIGURG事件信号的进程或进程组的标识
+         * 当该描述符状态发生改变时,会向ngx_pid发送SIGIO信号。ngx_pid是master进程的进程ID
+         */
+        if (fcntl(ngx_processes[s].channel[0], F_SETOWN, ngx_pid) == -1) {  //master主进程接受信号
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "fcntl(F_SETOWN) failed while spawning \"%s\"", name);
             ngx_close_channel(ngx_processes[s].channel, cycle->log);
             return NGX_INVALID_PID;
         }
 
+        /**
+         * 设置两个描述符的CLOEXEC标识，
+         * 在使用execl执行的进程里，此描述符被关闭，不能再使用它。在使用fork调用的子进程中，此描述符并不关闭，仍可使用。
+         */
         if (fcntl(ngx_processes[s].channel[0], F_SETFD, FD_CLOEXEC) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "fcntl(FD_CLOEXEC) failed while spawning \"%s\"",
@@ -173,7 +199,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
             return NGX_INVALID_PID;
         }
 
-        ngx_channel = ngx_processes[s].channel[1];
+        ngx_channel = ngx_processes[s].channel[1];  //设置当前的进程的通道
 
     } else {
         ngx_processes[s].channel[0] = -1;
@@ -195,6 +221,11 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
     case 0:
         ngx_pid = ngx_getpid();
+        /**
+         *  \file ../../os/unix/ngx_process_cycle.c
+         *  子进程入口函数：ngx_worker_process_cycle
+         *  该函数应设计成死循环！
+         */
         proc(cycle, data);
         break;
 
@@ -204,6 +235,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "start %s %P", name, pid);
 
+    //父进程逻辑 主要是记录子进程信息到进程表中
     ngx_processes[s].pid = pid;
     ngx_processes[s].exited = 0;
 
@@ -279,7 +311,12 @@ ngx_execute_proc(ngx_cycle_t *cycle, void *data)
     exit(1);
 }
 
-
+/**
+ *  @param [in] log log日志对象
+ *  @return NGX_OK
+ *  
+ *  注册ngx项目预定义信号处理函数
+ */
 ngx_int_t
 ngx_init_signals(ngx_log_t *log)
 {

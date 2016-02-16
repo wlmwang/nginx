@@ -14,27 +14,35 @@
 
 static void ngx_shmtx_wakeup(ngx_shmtx_t *mtx);
 
-
+/**
+ *  @param [in/out] mtx 自旋锁
+ *  @param [in] addr 共享内存地址
+ *  @param [in] name 文件锁名称
+ *  @return NGX_OK
+ *  
+ *  初始化自旋锁：为mtx.lock分配内存空间
+ */
 ngx_int_t
 ngx_shmtx_create(ngx_shmtx_t *mtx, ngx_shmtx_sh_t *addr, u_char *name)
 {
+    //注意到lock为ngx_shmtx_sh_t的首个元素，则&ngx_shmtx_sh_t.lock其实是起始内存地址。赋给mtx的lock域就完事了
     mtx->lock = &addr->lock;
 
-    if (mtx->spin == (ngx_uint_t) -1) {
+    if (mtx->spin == (ngx_uint_t) -1) {     //如果等于-1是自旋锁
         return NGX_OK;
     }
 
-    mtx->spin = 2048;
+    mtx->spin = 2048;   //自旋计数器重置为2048
 
 #if (NGX_HAVE_POSIX_SEM)
 
     mtx->wait = &addr->wait;
 
-    if (sem_init(&mtx->sem, 1, 0) == -1) {
+    if (sem_init(&mtx->sem, 1, 0) == -1) {  //信号量初始化，且在进程之间共享
         ngx_log_error(NGX_LOG_ALERT, ngx_cycle->log, ngx_errno,
                       "sem_init() failed");
     } else {
-        mtx->semaphore = 1;
+        mtx->semaphore = 1;     //使用信号量标志位
     }
 
 #endif

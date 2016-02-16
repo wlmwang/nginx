@@ -546,7 +546,10 @@ ngx_read_dir(ngx_dir_t *dir)
     return NGX_ERROR;
 }
 
-
+/**
+ * @param [in] gl 路径模式
+ * 查找文件系统中指定模式的路径
+ */
 ngx_int_t
 ngx_open_glob(ngx_glob_t *gl)
 {
@@ -569,7 +572,11 @@ ngx_open_glob(ngx_glob_t *gl)
     return NGX_ERROR;
 }
 
-
+/**
+ * @param [in] gl 路径模式
+ * @param [out] name 路径文件名
+ * 返回具体文件名
+ */
 ngx_int_t
 ngx_read_glob(ngx_glob_t *gl, ngx_str_t *name)
 {

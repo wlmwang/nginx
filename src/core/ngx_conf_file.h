@@ -74,24 +74,50 @@
 
 #define NGX_MAX_CONF_ERRSTR  1024
 
-
+/**
+ * 描述某个模块支持的指令
+ * 负责解析配置文件的指令，一个指令对应一个配置指令
+ */
 struct ngx_command_s {
+    //指令名称
     ngx_str_t             name;
+    /**
+     * 指令类型
+     * 表示该指令在配置文件中的合法位置和可接受参数个数的标示符集合。
+     * 32位的无符号整型数组成。前面16位表示指令的位置，后面16位表示参数个数。
+     * 合法位置：如http模块中有指令集：http块中（寻址）、在server块中（寻址）、在location块中（寻址）、在upstream块中（寻址）
+     * core模块中有指令集：直接寻址方式、在全局块中（寻址）
+     * ...
+     * 参数个数
+     */
     ngx_uint_t            type;
+    /**
+     * 指令解析执行函数
+     * 把ngx配置文件该指令的参数转换为合适的数据结构类型，并将转换后的值保存到ngx模块的配置结构体（如ngx_conf_t）中
+     */
     char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+    //指定配置文件结构体中各其他类型指令配置结构体在该结构体中的偏移量
     ngx_uint_t            conf;
+    /**
+     * 在父指令块中的偏移。用来指定该值保存在配置结构体（ngx_conf_t）中的具体位置的。offsetof()函数计算
+     */
     ngx_uint_t            offset;
+    //读取配置文件时可能使用的指令
     void                 *post;
 };
 
 #define ngx_null_command  { ngx_null_string, 0, NULL, 0, 0, NULL }
 
-
+/**
+ * 打开文件结构
+ */
 struct ngx_open_file_s {
     ngx_fd_t              fd;
     ngx_str_t             name;
 
+    //刷新的句柄
     void                (*flush)(ngx_open_file_t *file, ngx_log_t *log);
+    //数据
     void                 *data;
 };
 
@@ -99,8 +125,14 @@ struct ngx_open_file_s {
 #define NGX_MODULE_V1          0, 0, 0, 0, 0, 0, 1
 #define NGX_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
+/**
+ * 模块结构体 模块化设计核心
+ * ngx的每一个模块都需实现ngx_module_t结构体
+ */
 struct ngx_module_s {
+    //分类模块计数器：在ngx_modules[]数组中，该模块在相同类型的模块中的次序。
     ngx_uint_t            ctx_index;
+    //模块计数器：按照每个模块在ngx_modules[]数组中的声明顺序，从0开始依次给每个模块赋值
     ngx_uint_t            index;
 
     ngx_uint_t            spare0;
@@ -108,21 +140,33 @@ struct ngx_module_s {
     ngx_uint_t            spare2;
     ngx_uint_t            spare3;
 
+    //版本
     ngx_uint_t            version;
 
+    //与模块相关的上下文。不同种类的模块有不同的上下文，因此实现了四种结构体（如ngx_core_module/ngx_events_module/ngx_event_core_module）
     void                 *ctx;
+    //该模块的指令集，指向一个ngx_command_t结构数组，数组元素为每条指令集。
     ngx_command_t        *commands;
+    //----该模块的种类，为core|event|http|mail中的一种宏标识
+    //模块的种类，NGX_CONF_MODULE
     ngx_uint_t            type;
 
+    //初始化master时执行
     ngx_int_t           (*init_master)(ngx_log_t *log);
 
+    //初始化module时执行
     ngx_int_t           (*init_module)(ngx_cycle_t *cycle);
 
+    //初始化工作进程时执行
     ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
+    //初始化线程时执行
     ngx_int_t           (*init_thread)(ngx_cycle_t *cycle);
+    //退出线程时执行
     void                (*exit_thread)(ngx_cycle_t *cycle);
+    //退出工作进程时执行
     void                (*exit_process)(ngx_cycle_t *cycle);
 
+    //退出master时执行
     void                (*exit_master)(ngx_cycle_t *cycle);
 
     uintptr_t             spare_hook0;
@@ -135,22 +179,35 @@ struct ngx_module_s {
     uintptr_t             spare_hook7;
 };
 
-
+/**
+ * core模块
+ */
 typedef struct {
+    //模块名
     ngx_str_t             name;
+    //core模块解析配置项，ngx框架会调用create_conf方法
     void               *(*create_conf)(ngx_cycle_t *cycle);
+    //解析配置项完成后，ngx框架会调用init_conf方法
     char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);
 } ngx_core_module_t;
 
-
+/**
+ * 配置文件处理结构体
+ */
 typedef struct {
+    //文件属性
     ngx_file_t            file;
+    //文件内容/配置内容
     ngx_buf_t            *buffer;
+    //-T临时配置文件内容
     ngx_buf_t            *dump;
+    //读文件起始行
     ngx_uint_t            line;
 } ngx_conf_file_t;
 
-
+/**
+ * 程序运行时配置值临时变量
+ */
 typedef struct {
     ngx_str_t             name;
     ngx_buf_t            *buffer;
@@ -160,22 +217,35 @@ typedef struct {
 typedef char *(*ngx_conf_handler_pt)(ngx_conf_t *cf,
     ngx_command_t *dummy, void *conf);
 
-
+/*
+ * ngx在解析配置文件时描述每条指令的属性
+ */
 struct ngx_conf_s {
+    //存放当前解析到的指令
     char                 *name;
+    //存放每条指令包含的所有参数（逐行解析）
     ngx_array_t          *args;
 
+    //ngx_cycle_t指针
     ngx_cycle_t          *cycle;
+    //内存池对象
     ngx_pool_t           *pool;
+    //用于解析配置文件的临时内存池，解析完成后释放
     ngx_pool_t           *temp_pool;
+    //存放ngx配置文件的相关信息
     ngx_conf_file_t      *conf_file;
     ngx_log_t            *log;
 
+    //描述指令的上下文。指向各个配置结构。指向ngx_cycle_t.conf_ctx
     void                 *ctx;
+    //支持该指令的模块的类型，core、http、event和mail中的一种。等同于ngx_module_t.type
     ngx_uint_t            module_type;
+    //指令的类型。等同于ngx_command_t.type前16位
     ngx_uint_t            cmd_type;
 
+    //指令自定义的处理函数
     ngx_conf_handler_pt   handler;
+    //自定义处理函数需要的相关配置
     char                 *handler_conf;
 };
 

@@ -20,18 +20,33 @@ typedef pid_t       ngx_pid_t;
 typedef void (*ngx_spawn_proc_pt) (ngx_cycle_t *cycle, void *data);
 
 typedef struct {
+    //当前工作进程的ID号
     ngx_pid_t           pid;
+    //当前进程的退出状态
     int                 status;
+    /**
+     * 保存由socketpair创建的一对socket句柄，用于进程间交互。
+     * ngx代码中只用它作单向通信：master进程用channel[0]描述符来接受和发送消息；worker进程用channel[1]来接收和发送消息。
+     * 相对worker进程来说，channel[0]写端（主进程master侦听SIGIO事件）  和 channel[1]读端
+     */
     ngx_socket_t        channel[2];
 
+    //指向工作进程执行的函数
     ngx_spawn_proc_pt   proc;
+    //通常用来指向进程的上下文结构
     void               *data;
+    //为新建进程的名称，默认为"new binary process"
     char               *name;
 
+    //退出后是否重建
     unsigned            respawn:1;
+    //是否是首次创建的
     unsigned            just_spawn:1;
+    //是否已分离
     unsigned            detached:1;
+    //是否正在退出
     unsigned            exiting:1;
+    //是否已经退出
     unsigned            exited:1;
 } ngx_process_t;
 
@@ -44,13 +59,13 @@ typedef struct {
 } ngx_exec_ctx_t;
 
 
-#define NGX_MAX_PROCESSES         1024
+#define NGX_MAX_PROCESSES         1024  //最大master+worker数量
 
-#define NGX_PROCESS_NORESPAWN     -1
-#define NGX_PROCESS_JUST_SPAWN    -2
-#define NGX_PROCESS_RESPAWN       -3
-#define NGX_PROCESS_JUST_RESPAWN  -4
-#define NGX_PROCESS_DETACHED      -5
+#define NGX_PROCESS_NORESPAWN     -1    //子进程退出时，父进程不再创建
+#define NGX_PROCESS_JUST_SPAWN    -2    //用于在子进程退出并重新创建后标记是刚刚创建的新进程，防止被父进程意外终止
+#define NGX_PROCESS_RESPAWN       -3    //子进程退出时，父进程需要重新创建
+#define NGX_PROCESS_JUST_RESPAWN  -4    //该标记用来标记进程数组中哪些是新创建的子进程
+#define NGX_PROCESS_DETACHED      -5    //热代码替换
 
 
 #define ngx_getpid   getpid

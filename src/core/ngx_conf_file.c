@@ -14,7 +14,9 @@ static ngx_int_t ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last);
 static ngx_int_t ngx_conf_read_token(ngx_conf_t *cf);
 static void ngx_conf_flush_files(ngx_cycle_t *cycle);
 
-
+/**
+ * include指令
+ */
 static ngx_command_t  ngx_conf_commands[] = {
 
     { ngx_string("include"),
@@ -57,7 +59,13 @@ static ngx_uint_t argument_number[] = {
     NGX_CONF_TAKE7
 };
 
-
+/**
+ *  @param [in/out] cf ngx_conf_t配置
+ *  @return char *|NULL
+ *  
+ *  解析-g启动参数配置(cf->cycle->conf_param)
+ *  ngx_conf_t.conf_file.buffer中存放-g参数数组
+ */
 char *
 ngx_conf_param(ngx_conf_t *cf)
 {
@@ -66,7 +74,7 @@ ngx_conf_param(ngx_conf_t *cf)
     ngx_buf_t         b;
     ngx_conf_file_t   conf_file;
 
-    param = &cf->cycle->conf_param;
+    param = &cf->cycle->conf_param; //-g参数 param类型为ngx_array数组
 
     if (param->len == 0) {
         return NGX_CONF_OK;
@@ -82,21 +90,28 @@ ngx_conf_param(ngx_conf_t *cf)
     b.end = b.last;
     b.temporary = 1;
 
+    //处理-g参数配置，不需要配置文件。文件相关置为无效值，buffer指向conf_param的buf内存地址
     conf_file.file.fd = NGX_INVALID_FILE;
     conf_file.file.name.data = NULL;
     conf_file.line = 0;
 
     cf->conf_file = &conf_file;
-    cf->conf_file->buffer = &b;
+    cf->conf_file->buffer = &b;     //存放配置项数据
 
     rv = ngx_conf_parse(cf, NULL);
 
-    cf->conf_file = NULL;
+    cf->conf_file = NULL;   //解析完立即置空
 
     return rv;
 }
 
-
+/**
+ *  @param [in/out] cf ngx_conf_t配置
+ *  @param [in] filename 配置文件名
+ *  @return char * NULL
+ *  
+ *  配置文件解析
+ */
 char *
 ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 {
@@ -119,7 +134,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
     prev = NULL;
 #endif
 
-    if (filename) {
+    if (filename) { //配置文件
 
         /* open configuration file */
 
@@ -131,10 +146,15 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             return NGX_CONF_ERROR;
         }
 
-        prev = cf->conf_file;
+        prev = cf->conf_file;   //保存cycle对象原有配置文件
 
         cf->conf_file = &conf_file;
 
+        /**
+         *  \file ../../os/unix/ngx_file.h
+         *  获取&设置cf->conf_file->file.info文件描述信息。
+         *  #define ngx_fd_info(fd, sb) fstat(fd, sb)  跟随符号链接文件
+         */
         if (ngx_fd_info(fd, &cf->conf_file->file.info) == NGX_FILE_ERROR) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, ngx_errno,
                           ngx_fd_info_n " \"%s\" failed", filename->data);
@@ -142,16 +162,17 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 
         cf->conf_file->buffer = &buf;
 
-        buf.start = ngx_alloc(NGX_CONF_BUFFER, cf->log);
+        buf.start = ngx_alloc(NGX_CONF_BUFFER, cf->log);    //4k
         if (buf.start == NULL) {
             goto failed;
         }
 
         buf.pos = buf.start;
         buf.last = buf.start;
-        buf.end = buf.last + NGX_CONF_BUFFER;
+        buf.end = buf.last + NGX_CONF_BUFFER;   //4k
         buf.temporary = 1;
 
+        //配置文件字段设置
         cf->conf_file->file.fd = fd;
         cf->conf_file->file.name.len = filename->len;
         cf->conf_file->file.name.data = filename->data;
@@ -161,6 +182,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 
         type = parse_file;
 
+        //-T
         if (ngx_dump_config
 #if (NGX_DEBUG)
             || 1
@@ -172,8 +194,17 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
                 goto failed;
             }
 
+            /**
+             *  \file ../../os/unix/ngx_file.h
+             *  \brief 获取文件大小。
+             *  #define ngx_file_size(sb) (sb)->st_size
+             */
             size = ngx_file_size(&cf->conf_file->file.info);
 
+            /**
+             *  \file ngx_buf.h
+             *  创建临时buf
+             */
             tbuf = ngx_create_temp_buf(cf->cycle->pool, (size_t) size);
             if (tbuf == NULL) {
                 goto failed;
@@ -194,11 +225,11 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             cf->conf_file->dump = NULL;
         }
 
-    } else if (cf->conf_file->file.fd != NGX_INVALID_FILE) {
+    } else if (cf->conf_file->file.fd != NGX_INVALID_FILE) {    //内存配置字符串
 
         type = parse_block;
 
-    } else {
+    } else {    //-g
         type = parse_param;
     }
 
@@ -279,7 +310,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             goto failed;
         }
 
-
+        //解析配置行
         rc = ngx_conf_handler(cf, rc);
 
         if (rc == NGX_ERROR) {
@@ -315,7 +346,13 @@ done:
     return NGX_CONF_OK;
 }
 
-
+/**
+ *  @param [in/out] cf ngx_conf_t配置
+ *  @param [in] last 标志信息（出错|成功、行结束;|块开始{|块结束}|文件结尾）
+ *  @return char * NULL
+ *  
+ *  解析配置行
+ */
 static ngx_int_t
 ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 {
@@ -348,6 +385,10 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 
             found = 1;
 
+            /**
+             * ngx配置模块
+             * ngx_conf_module
+             */
             if (ngx_modules[i]->type != NGX_CONF_MODULE
                 && ngx_modules[i]->type != cf->module_type)
             {
@@ -774,13 +815,23 @@ ngx_conf_read_token(ngx_conf_t *cf)
     }
 }
 
-
+/**
+ *  @param [in/out] cf ngx_conf_t配置
+ *  @param [in] cmd 配置指令
+ *  @return char * NULL
+ *  
+ *  包含配置文件，对应include指令
+ */
 char *
 ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     char        *rv;
     ngx_int_t    n;
     ngx_str_t   *value, file, name;
+    /**
+     * \file ../../os/unix/ngx_files.h|c
+     * 路径模式匹配
+     */
     ngx_glob_t   gl;
 
     value = cf->args->elts;
@@ -788,6 +839,7 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     ngx_log_debug1(NGX_LOG_DEBUG_CORE, cf->log, 0, "include %s", file.data);
 
+    //配置文件绝对路径
     if (ngx_conf_full_name(cf->cycle, &file, 1) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
@@ -796,7 +848,7 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         ngx_log_debug1(NGX_LOG_DEBUG_CORE, cf->log, 0, "include %s", file.data);
 
-        return ngx_conf_parse(cf, &file);
+        return ngx_conf_parse(cf, &file);   //路径无匹配模式，直接解析文件
     }
 
     ngx_memzero(&gl, sizeof(ngx_glob_t));
@@ -805,6 +857,10 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     gl.log = cf->log;
     gl.test = 1;
 
+    /**
+     * \file ../../os/unix/ngx_files.h|c
+     * 路径模式匹配
+     */
     if (ngx_open_glob(&gl) != NGX_OK) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, ngx_errno,
                            ngx_open_glob_n " \"%s\" failed", file.data);
@@ -813,7 +869,12 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     rv = NGX_CONF_OK;
 
+    //循环包含配置文件
     for ( ;; ) {
+        /**
+         * \file ../../os/unix/ngx_files.h|c
+         * 返回具体文件名
+         */
         n = ngx_read_glob(&gl, &name);
 
         if (n != NGX_OK) {

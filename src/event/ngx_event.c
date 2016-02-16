@@ -419,7 +419,12 @@ ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
     return NGX_CONF_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return NGX_OK
+ *  
+ *  初始化event模块
+ */
 static ngx_int_t
 ngx_event_module_init(ngx_cycle_t *cycle)
 {
@@ -448,6 +453,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     ngx_int_t      limit;
     struct rlimit  rlmt;
 
+    //进程可以打开的最大文件描述符数
     if (getrlimit(RLIMIT_NOFILE, &rlmt) == -1) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                       "getrlimit(RLIMIT_NOFILE) failed, ignored");
@@ -474,7 +480,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
         return NGX_OK;
     }
 
-    if (ngx_accept_mutex_ptr) {
+    if (ngx_accept_mutex_ptr) {     //共享内存锁
         return NGX_OK;
     }
 
@@ -483,6 +489,10 @@ ngx_event_module_init(ngx_cycle_t *cycle)
 
     cl = 128;
 
+    /**
+     * 后面将会创建size大小的共享内存，这块共享内存将被均分成三段，
+     * 分别供ngx_accept_mutex、ngx_connection_counter、ngx_temp_number使用
+     */
     size = cl            /* ngx_accept_mutex */
            + cl          /* ngx_connection_counter */
            + cl;         /* ngx_temp_number */
@@ -504,15 +514,23 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     shm.name.data = (u_char *) "nginx_shared_zone";
     shm.log = cycle->log;
 
+    /**
+     *  \file ../../os/unix/ngx_shmem.h|c
+     *  分配共享内存
+     */
     if (ngx_shm_alloc(&shm) != NGX_OK) {
         return NGX_ERROR;
     }
 
     shared = shm.addr;
 
-    ngx_accept_mutex_ptr = (ngx_atomic_t *) shared;
-    ngx_accept_mutex.spin = (ngx_uint_t) -1;
+    ngx_accept_mutex_ptr = (ngx_atomic_t *) shared; //存放互斥量内存地址的指针
+    ngx_accept_mutex.spin = (ngx_uint_t) -1;        //初始化自旋锁的初值为-1
 
+    /**
+     *  \file ../../src/core/ngx_shmtx.h|c
+     *  初始化互斥体。如果支持原子操作的话，就直接将内存地址分配过去就行。否则使用文件锁
+     */
     if (ngx_shmtx_create(&ngx_accept_mutex, (ngx_shmtx_sh_t *) shared,
                          cycle->lock_file.data)
         != NGX_OK)
@@ -520,7 +538,8 @@ ngx_event_module_init(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
-    ngx_connection_counter = (ngx_atomic_t *) (shared + 1 * cl);
+    //保存当前服务器总共持有的connection
+    ngx_connection_counter = (ngx_atomic_t *) (shared + 1 * cl);    //使用共享内存
 
     (void) ngx_atomic_cmp_set(ngx_connection_counter, 0, 1);
 
@@ -528,11 +547,11 @@ ngx_event_module_init(ngx_cycle_t *cycle)
                    "counter: %p, %d",
                    ngx_connection_counter, *ngx_connection_counter);
 
-    ngx_temp_number = (ngx_atomic_t *) (shared + 2 * cl);
+    ngx_temp_number = (ngx_atomic_t *) (shared + 2 * cl);   //???
 
     tp = ngx_timeofday();
 
-    ngx_random_number = (tp->msec << 16) + ngx_pid;
+    ngx_random_number = (tp->msec << 16) + ngx_pid;     //???
 
 #if (NGX_STAT_STUB)
 
@@ -602,6 +621,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     ngx_queue_init(&ngx_posted_accept_events);
     ngx_queue_init(&ngx_posted_events);
 
+    //初始化定时器（红黑树建数操作）
     if (ngx_event_timer_init(cycle->log) == NGX_ERROR) {
         return NGX_ERROR;
     }
@@ -646,6 +666,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         itv.it_value.tv_sec = ngx_timer_resolution / 1000;
         itv.it_value.tv_usec = (ngx_timer_resolution % 1000 ) * 1000;
 
+        //红黑树，定时器（SIGALRM）
         if (setitimer(ITIMER_REAL, &itv, NULL) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "setitimer() failed");

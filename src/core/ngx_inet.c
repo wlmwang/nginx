@@ -176,7 +176,16 @@ ngx_inet6_addr(u_char *p, size_t len, u_char *addr)
 
 #endif
 
-
+/**
+ *  @param [in] sa sockaddr地址数据
+ *  @param [in] socklen sa地址长度
+ *  @param [out] text 设置地址字符串形式
+ *  @param [in] len text最长长度
+ *  @param [in] port 地址中是否带port
+ *  @return text实际长度
+ *  
+ *  获取socket地址字符串形式
+ */
 size_t
 ngx_sock_ntop(struct sockaddr *sa, socklen_t socklen, u_char *text, size_t len,
     ngx_uint_t port)

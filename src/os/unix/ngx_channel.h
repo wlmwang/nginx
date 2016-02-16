@@ -13,12 +13,23 @@
 #include <ngx_core.h>
 #include <ngx_event.h>
 
-
+/**
+ * 进程间通信
+ * 利用socketpair创建的一对socket进行的，通信中传输的是ngx_channel_t结构变量
+ */
 typedef struct {
+	/**
+	 * command是要发送的命令，有5种： 
+	 * #define NGX_CMD_OPEN_CHANNEL   1 
+	 * #define NGX_CMD_CLOSE_CHANNEL  2 
+	 * #define NGX_CMD_QUIT           3 
+	 * #define NGX_CMD_TERMINATE      4 
+	 * #define NGX_CMD_REOPEN         5 
+	 */
      ngx_uint_t  command;
-     ngx_pid_t   pid;
-     ngx_int_t   slot;
-     ngx_fd_t    fd;
+     ngx_pid_t   pid;	//发送方进程id
+     ngx_int_t   slot;	//发送方进程表中偏移(下标)
+     ngx_fd_t    fd;	//发送给对方的句柄
 } ngx_channel_t;
 
 

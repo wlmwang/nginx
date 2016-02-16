@@ -126,7 +126,13 @@ ngx_clone_listening(ngx_conf_t *cf, ngx_listening_t *ls)
     return NGX_OK;
 }
 
-
+/**
+ *  
+ *  @param [in/out] cycle cycle对象
+ *  @return int NGX_OK|NGX_ERROR
+ *  
+ *  对cycle.listening检测|设置|过滤fd（无效fd设置ignore标识位）
+ */
 ngx_int_t
 ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 {
@@ -156,6 +162,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
         }
 
         ls[i].socklen = NGX_SOCKADDRLEN;
+        //getsockname返回socket关联本地协议地址和端口(此处为listen地址)
         if (getsockname(ls[i].fd, ls[i].sockaddr, &ls[i].socklen) == -1) {
             ngx_log_error(NGX_LOG_CRIT, cycle->log, ngx_socket_errno,
                           "getsockname() of the inherited "
@@ -164,6 +171,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
             continue;
         }
 
+        //字符串地址长度计算
         switch (ls[i].sockaddr->sa_family) {
 
 #if (NGX_HAVE_INET6)
@@ -174,13 +182,13 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 #endif
 
 #if (NGX_HAVE_UNIX_DOMAIN)
-        case AF_UNIX:
+        case AF_UNIX: //unix://
              ls[i].addr_text_max_len = NGX_UNIX_ADDRSTRLEN;
              len = NGX_UNIX_ADDRSTRLEN;
              break;
 #endif
 
-        case AF_INET:
+        case AF_INET: //tcp/ip协议族
              ls[i].addr_text_max_len = NGX_INET_ADDRSTRLEN;
              len = NGX_INET_ADDRSTRLEN + sizeof(":65535") - 1;
              break;
@@ -198,6 +206,10 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
             return NGX_ERROR;
         }
 
+        /**
+         *  \file ngx_inet.h|c
+         *  设置socket地址字符串形式
+         */
         len = ngx_sock_ntop(ls[i].sockaddr, ls[i].socklen,
                             ls[i].addr_text.data, len, 1);
         if (len == 0) {
@@ -206,10 +218,12 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         ls[i].addr_text.len = len;
 
+        //#define NGX_LISTEN_BACKLOG 511
         ls[i].backlog = NGX_LISTEN_BACKLOG;
 
         olen = sizeof(int);
 
+        //获取recv buf大小
         if (getsockopt(ls[i].fd, SOL_SOCKET, SO_RCVBUF, (void *) &ls[i].rcvbuf,
                        &olen)
             == -1)
@@ -223,6 +237,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         olen = sizeof(int);
 
+        //获取send buf大小
         if (getsockopt(ls[i].fd, SOL_SOCKET, SO_SNDBUF, (void *) &ls[i].sndbuf,
                        &olen)
             == -1)
@@ -260,6 +275,12 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
         reuseport = 0;
         olen = sizeof(int);
 
+        /**
+         *  tips:
+         *  Linux kernel 3.9
+         *  端口复用，避免重复绑定出错(SO_REUSEADDR)。支持多个进程或者线程绑定到同一端口
+         *  每一个进程或线程拥有自己的服务器套接字，互不干扰。内核层面的负载均衡
+         */
         if (getsockopt(ls[i].fd, SOL_SOCKET, SO_REUSEPORT,
                        (void *) &reuseport, &olen)
             == -1)
@@ -278,6 +299,12 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         olen = sizeof(int);
 
+        /**
+         * tips:
+         * Linux kernel 3.7.1
+         * 对TCP的一个增强,简而言之就是在3次握手的时候也用来交换数据
+         * chrome有些版本也支持（client必须要支持），默认关闭
+         */
         if (getsockopt(ls[i].fd, IPPROTO_TCP, TCP_FASTOPEN,
                        (void *) &ls[i].fastopen, &olen)
             == -1)
@@ -300,6 +327,13 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
         ngx_memzero(&af, sizeof(struct accept_filter_arg));
         olen = sizeof(struct accept_filter_arg);
 
+        /**
+         * 当支持accept filter时，通过SO_ACCEPTFILTER选项取得socket的accept_filter表 
+         * 保存在对应项的accept_filter中； 
+         *
+         * SO_ACCEPTFILTER 是socket上的输入过滤，他在接手前，将过滤掉传入流套接字的链接，
+         * 功能是服务器不等待最后的ACK包而仅仅等待携带数据负载的包
+         */
         if (getsockopt(ls[i].fd, SOL_SOCKET, SO_ACCEPTFILTER, &af, &olen)
             == -1)
         {
@@ -333,6 +367,13 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
         timeout = 0;
         olen = sizeof(int);
 
+        /** 
+         * 如果当前操作系统TCP层支持TCP_DEFER_ACCEPT， 
+         * 则试图获取TCP_DEFER_ACCEPT的timeout值。Timeout大于0时，则将socket对应deferred_accept标志设为1
+         * 支持deffered accept的操作系统，nginx会设置这个参数来增强功能，设置了这个参数，在accept的时候，
+         * 只有当实际收到了数据，才唤醒在accept等待的进程，可以减少一些无聊的上下文切换
+         * 可自行查阅资料~
+         */
         if (getsockopt(ls[i].fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &timeout, &olen)
             == -1)
         {
@@ -359,7 +400,12 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return NGX_OK
+ *  
+ *  (尝试5遍)遍历listening数组并打开所有侦听sockets(socket()->setsockopt()->bind()->listen())
+ */
 ngx_int_t
 ngx_open_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -429,6 +475,10 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 continue;
             }
 
+            /**
+             *  \file ../../os/unix/ngx_socket.c
+             *  #define ngx_socket socket
+             */
             s = ngx_socket(ls[i].sockaddr->sa_family, ls[i].type, 0);
 
             if (s == (ngx_socket_t) -1) {
@@ -500,6 +550,11 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
             /* TODO: close on exit */
 
             if (!(ngx_event_flags & NGX_USE_IOCP_EVENT)) {
+                /**
+                 *  \file ../../os/unix/ngx_socket.c
+                 *  #define ngx_nonblocking(s) fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK)
+                 *  非阻塞io
+                 */
                 if (ngx_nonblocking(s) == -1) {
                     ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
                                   ngx_nonblocking_n " %V failed",
@@ -518,6 +573,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
             ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0,
                            "bind() %V #%d ", &ls[i].addr_text, s);
 
+            //Listening Socket bind地址
             if (bind(s, ls[i].sockaddr, ls[i].socklen) == -1) {
                 err = ngx_socket_errno;
 
@@ -557,6 +613,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                                   "chmod() \"%s\" failed", name);
                 }
 
+                //-t
                 if (ngx_test_config) {
                     if (ngx_delete_file(name) == NGX_FILE_ERROR) {
                         ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_errno,
@@ -566,6 +623,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
             }
 #endif
 
+            //Listening Socket 侦听
             if (listen(s, ls[i].backlog) == -1) {
                 err = ngx_socket_errno;
 
@@ -623,7 +681,12 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return void
+ *  
+ *  配置所有listening socket
+ */
 void
 ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -665,6 +728,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
         if (ls[i].keepalive) {
             value = (ls[i].keepalive == 1) ? 1 : 0;
 
+            //开启keepalive属性
             if (setsockopt(ls[i].fd, SOL_SOCKET, SO_KEEPALIVE,
                            (const void *) &value, sizeof(int))
                 == -1)
@@ -684,6 +748,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
             value *= NGX_KEEPALIVE_FACTOR;
 #endif
 
+            //如该fd连接在value秒内没有任何数据往来,则进行探测
             if (setsockopt(ls[i].fd, IPPROTO_TCP, TCP_KEEPIDLE,
                            (const void *) &value, sizeof(int))
                 == -1)
@@ -701,6 +766,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
             value *= NGX_KEEPALIVE_FACTOR;
 #endif
 
+            //探测时发包的时间间隔为value秒
             if (setsockopt(ls[i].fd, IPPROTO_TCP, TCP_KEEPINTVL,
                            (const void *) &value, sizeof(int))
                 == -1)
@@ -712,6 +778,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
         }
 
         if (ls[i].keepcnt) {
+            //探测尝试keepcnt的次数。如果第1次探测包就收到响应了,则后2次的不再发
             if (setsockopt(ls[i].fd, IPPROTO_TCP, TCP_KEEPCNT,
                            (const void *) &ls[i].keepcnt, sizeof(int))
                 == -1)

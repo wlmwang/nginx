@@ -99,7 +99,12 @@ ngx_os_init(ngx_log_t *log)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] log log对象
+ *  @return void
+ *  
+ *  记录os状态日志，包括操作系统类型、版本
+ */
 void
 ngx_os_status(ngx_log_t *log)
 {

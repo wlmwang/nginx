@@ -38,7 +38,7 @@ void ngx_master_process_cycle(ngx_cycle_t *cycle);
 void ngx_single_process_cycle(ngx_cycle_t *cycle);
 
 
-extern ngx_uint_t      ngx_process;
+extern ngx_uint_t      ngx_process;		//进程模式 NGX_PROCESS_MASTER|NGX_PROCESS_WORKER
 extern ngx_uint_t      ngx_worker;
 extern ngx_pid_t       ngx_pid;
 extern ngx_pid_t       ngx_new_binary;

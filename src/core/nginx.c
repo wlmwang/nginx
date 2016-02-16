@@ -206,7 +206,7 @@ main(int argc, char *const *argv)
      *  \file ngx_cycle.h|c
      *  cycle对象
      */
-    ngx_cycle_t      *cycle, init_cycle;
+    ngx_cycle_t      *cycle /*新的cycle对象，建立在pool上*/, init_cycle;  //旧的cycle对象，建立在栈上
     /**
      *  \file ngx_conf_file.h|c
      *  程序运行时配置值临时变量
@@ -331,11 +331,20 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    /**
+     *  \file ../../objs/ngx_modules.c
+     *  \file ngx_conf_file.h
+     *  \brief 初始化每个模块index属性
+     */
     ngx_max_module = 0;
     for (i = 0; ngx_modules[i]; i++) {
         ngx_modules[i]->index = ngx_max_module++;
     }
 
+    /**
+     *  \file ngx_cycle.h|c
+     *  初始化ngx_cycle结构体
+     */
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
         if (ngx_test_config) {
@@ -346,12 +355,14 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    //-t -T
     if (ngx_test_config) {
         if (!ngx_quiet_mode) {
             ngx_log_stderr(0, "configuration file %s test is successful",
                            cycle->conf_file.data);
         }
 
+        //-T
         if (ngx_dump_config) {
             cd = cycle->config_dump.elts;
 
@@ -372,27 +383,43 @@ main(int argc, char *const *argv)
         return 0;
     }
 
-    if (ngx_signal) {
+    if (ngx_signal) {   //-s
+        /**
+         *  \file ngx_cycle.c
+         *  信号处理，向主进程发送信号
+         */
         return ngx_signal_process(cycle, ngx_signal);
     }
 
+    /**
+     *  \file ../../os/unix/ngx_posix_init.c
+     *  日志记录os状态，包括操作系统类型、版本
+     */
     ngx_os_status(cycle->log);
 
-    ngx_cycle = cycle;
+    ngx_cycle = cycle;  //替换为新的cycle
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
     if (ccf->master && ngx_process == NGX_PROCESS_SINGLE) {
-        ngx_process = NGX_PROCESS_MASTER;
+        ngx_process = NGX_PROCESS_MASTER;   //master模式
     }
 
 #if !(NGX_WIN32)
-
+    
+    /**
+     *  \file ../../os/unix/ngx_process.h|c
+     *  注册ngx项目预定义信号处理函数
+     */
     if (ngx_init_signals(cycle->log) != NGX_OK) {
         return 1;
     }
 
     if (!ngx_inherited && ccf->daemon) {
+        /**
+         *  \file ../../os/unix/ngx_daemon.c
+         *  变为deamon运行
+         */
         if (ngx_daemon(cycle->log) != NGX_OK) {
             return 1;
         }
@@ -406,10 +433,18 @@ main(int argc, char *const *argv)
 
 #endif
 
+    /**
+     *  \file ngx_cycle.h|c
+     *  创建pid文件并写入进程pid
+     */
     if (ngx_create_pidfile(&ccf->pid, cycle->log) != NGX_OK) {
         return 1;
     }
 
+    /**
+     *  \file ngx_log.c
+     *  重定向日志到标准输出
+     */
     if (ngx_log_redirect_stderr(cycle) != NGX_OK) {
         return 1;
     }
@@ -424,9 +459,13 @@ main(int argc, char *const *argv)
     ngx_use_stderr = 0;
 
     if (ngx_process == NGX_PROCESS_SINGLE) {
-        ngx_single_process_cycle(cycle);
+        ngx_single_process_cycle(cycle);  //single模式主循环
 
     } else {
+        /**
+         *  \file ../../os/unix/ngx_process_cycle.c
+         *  master-worker模式入口函数
+         */
         ngx_master_process_cycle(cycle);
     }
 
@@ -510,7 +549,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     u_char           *p, *v, *inherited;
     ngx_int_t         s;
     /**
-     *  \file ngx_connection.h
+     *  \file ngx_connection.h|c
      *  Listen socket struct
      */ 
     ngx_listening_t  *ls;
@@ -553,24 +592,30 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 
             ngx_memzero(ls, sizeof(ngx_listening_t));
 
-            ls->fd = (ngx_socket_t) s;  //typedef int ngx_socket_t;  继承Listen socket到cycle->listening数组中
+            ls->fd = (ngx_socket_t) s;  //继承Listen socket到cycle->listening数组中
         }
     }
 
     /**
-     *  \file ../../os/unix/ngx_process_cycle.c
+     *  \file ../../os/unix/ngx_process_cycle.h|c
      *  全局继承标识位
      */
     ngx_inherited = 1;
 
     /**
-     *  \file ngx_connection.c
-     *  \brief 检测fd
+     *  \file ngx_connection.h|c
+     *  \brief 检测|设置|过滤fd
      */
     return ngx_set_inherited_sockets(cycle);
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @param [in] last 
+ *  @return char ** 返回对应环境值
+ *  
+ *  为本进程设置环境变量
+ */
 char **
 ngx_set_environment(ngx_cycle_t *cycle, ngx_uint_t *last)
 {
@@ -588,6 +633,7 @@ ngx_set_environment(ngx_cycle_t *cycle, ngx_uint_t *last)
     var = ccf->env.elts;
 
     for (i = 0; i < ccf->env.nelts; i++) {
+        //TimeZone字符串 Fri, 13 Nov 2015 14:34:23 +0800   *.tz=01;31
         if (ngx_strcmp(var[i].data, "TZ") == 0
             || ngx_strncmp(var[i].data, "TZ=", 3) == 0)
         {
@@ -1044,7 +1090,12 @@ ngx_process_options(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return ngx_core_conf_t *  ngx core 命令集结构体
+ *  
+ *  创建核心配置为 未初始化状态
+ */
 static void *
 ngx_core_module_create_conf(ngx_cycle_t *cycle)
 {
@@ -1087,7 +1138,13 @@ ngx_core_module_create_conf(ngx_cycle_t *cycle)
     return ccf;
 }
 
-
+/**
+ *  @param [in/out] cycle cycle对象
+ *  @param [in/out] ngx_core_conf_t conf对象
+ *  @return char *
+ *  
+ *  初始化core配置结构体
+ */
 static char *
 ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
 {
@@ -1114,15 +1171,23 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
 
 #endif
 
-
+    /**
+     *  \file ../../objs/ngx_auto_config.h
+     *  #define NGX_PID_PATH  "logs/nginx.pid"  --configure --pid-path=*
+     */
     if (ccf->pid.len == 0) {
         ngx_str_set(&ccf->pid, NGX_PID_PATH);
     }
 
+    //pid文件绝对路径
     if (ngx_conf_full_name(cycle, &ccf->pid, 0) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
 
+    /**
+     *  \file nginx.h
+     *  #define NGX_OLDPID_EXT  ".oldbin"
+     */
     ccf->oldpid.len = ccf->pid.len + sizeof(NGX_OLDPID_EXT);
 
     ccf->oldpid.data = ngx_pnalloc(cycle->pool, ccf->oldpid.len);
@@ -1139,7 +1204,11 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
     if (ccf->user == (uid_t) NGX_CONF_UNSET_UINT && geteuid() == 0) {
         struct group   *grp;
         struct passwd  *pwd;
-
+        
+        /**
+         *  \file ../../objs/ngx_auto_config.h
+         *  #define NGX_USER  "nobody"  --configure --user=...
+         */
         ngx_set_errno(0);
         pwd = getpwnam(NGX_USER);
         if (pwd == NULL) {
@@ -1148,6 +1217,10 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
             return NGX_CONF_ERROR;
         }
 
+        /**
+         *  \file ../../objs/ngx_auto_config.h
+         *  #define NGX_GROUP  "nobody"  --configure --group=...
+         */
         ccf->username = NGX_USER;
         ccf->user = pwd->pw_uid;
 
@@ -1162,7 +1235,10 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
         ccf->group = grp->gr_gid;
     }
 
-
+    /**
+     *  \file ../../objs/ngx_auto_config.h
+     *  #define NGX_LOCK_PATH  "logs/nginx.lock"  --configure --lock-path=...
+     */
     if (ccf->lock_file.len == 0) {
         ngx_str_set(&ccf->lock_file, NGX_LOCK_PATH);
     }
@@ -1174,7 +1250,7 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
     {
     ngx_str_t  lock_file;
 
-    lock_file = cycle->old_cycle->lock_file;
+    lock_file = cycle->old_cycle->lock_file;  //old
 
     if (lock_file.len) {
         lock_file.len--;

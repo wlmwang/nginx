@@ -12,7 +12,9 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+/**
+ * 互斥锁
+ */
 typedef struct {
     ngx_atomic_t   lock;
 #if (NGX_HAVE_POSIX_SEM)
@@ -20,20 +22,22 @@ typedef struct {
 #endif
 } ngx_shmtx_sh_t;
 
-
+/**
+ * 自旋锁
+ */
 typedef struct {
-#if (NGX_HAVE_ATOMIC_OPS)
+#if (NGX_HAVE_ATOMIC_OPS)   //是否支持原子操作
     ngx_atomic_t  *lock;
-#if (NGX_HAVE_POSIX_SEM)
+#if (NGX_HAVE_POSIX_SEM)    //是否支持信号量
     ngx_atomic_t  *wait;
     ngx_uint_t     semaphore;
-    sem_t          sem;
+    sem_t          sem;     //进程间共享信号量
 #endif
 #else
     ngx_fd_t       fd;
     u_char        *name;
 #endif
-    ngx_uint_t     spin;
+    ngx_uint_t     spin;    //自旋锁标识
 } ngx_shmtx_t;
 
 

@@ -25,7 +25,9 @@ typedef struct {
     (q)->first = NULL;                                                        \
     (q)->last = &(q)->first
 
-
+/**
+ * 线程池
+ */
 struct ngx_thread_pool_s {
     ngx_thread_mutex_t        mtx;
     ngx_thread_pool_queue_t   queue;
