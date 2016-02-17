@@ -150,14 +150,14 @@ typedef enum {
  * Connect Socket
  */
 struct ngx_connection_s {
-    //连接未使用时，data用于充当连接池中空闲链表中的next指针。连接使用时由模块而定，HTTP中，data指向ngx_http_request_t
+    //连接未使用时，data用于充当连接池中的next指针。连接使用时由模块而定，HTTP中，data指向ngx_http_request_t
     void               *data;
     //连接对应的读事件
     ngx_event_t        *read;
     //连接对应的写事件
     ngx_event_t        *write;
 
-    //套接字对应的句柄
+    //connection文件描述符
     ngx_socket_t        fd;
 
     //直接接收网络字符流的方法
@@ -201,7 +201,7 @@ struct ngx_connection_s {
     //用来将当前连接以双向链表元素的形式添加到ngx_cycle_t核心结构体的reuseable_connection_queue双向链表中，表示可以重用的连接
     ngx_queue_t         queue;
 
-    //连接使用次数。ngx_connection_t结构体每次建立一条来自客户端的连接，或者主动向后端服务器发起连接时，number都会加1
+    //连接序号。ngx_connection_t结构体每次建立一条来自客户端的连接，或者主动向后端服务器发起连接时，number都会加1
     ngx_atomic_uint_t   number;
 
     //处理的请求次数

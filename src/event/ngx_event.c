@@ -50,7 +50,7 @@ ngx_atomic_t         *ngx_connection_counter = &connection_counter;
 
 ngx_atomic_t         *ngx_accept_mutex_ptr;
 ngx_shmtx_t           ngx_accept_mutex;
-ngx_uint_t            ngx_use_accept_mutex;
+ngx_uint_t            ngx_use_accept_mutex;     //是否使用accept mutex
 ngx_uint_t            ngx_accept_events;
 ngx_uint_t            ngx_accept_mutex_held;
 ngx_msec_t            ngx_accept_mutex_delay;
@@ -189,45 +189,79 @@ ngx_module_t  ngx_event_core_module = {
     NGX_MODULE_V1_PADDING
 };
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return void
+ *  
+ *  该函数在worker进程中loop部分，里面具有调用epoll_process函数
+ */
 void
 ngx_process_events_and_timers(ngx_cycle_t *cycle)
 {
-    ngx_uint_t  flags;
+    ngx_uint_t  flags;  //两个标识，一个是关于定时器的，另外一个则是关于accept post event（NGX_POST_EVENTS）的
     ngx_msec_t  timer, delta;
 
+    //timer值最后将作为epoll_wait的超时时间(timeout)
     if (ngx_timer_resolution) {
-        timer = NGX_TIMER_INFINITE;
+        timer = NGX_TIMER_INFINITE;     //-1,阻塞方式等待
         flags = 0;
 
     } else {
-        timer = ngx_event_find_timer();
+        timer = ngx_event_find_timer(); //在定时器红黑树中找出最小定时时间
         flags = NGX_UPDATE_TIME;
 
 #if (NGX_WIN32)
 
         /* handle signals from master in case of network inactivity */
 
-        if (timer == NGX_TIMER_INFINITE || timer > 500) {
+        if (timer == NGX_TIMER_INFINITE || timer > 500) {   //win系统下，定时器大于500或者无限时设置为500
             timer = 500;
         }
 
 #endif
     }
 
+    /**
+     * ngx_use_accept_mutex表示是否需要通过对accept加锁来解决惊群问题。
+     * 当nginx worker进程数>1时且配置文件中打开accept_mutex时，这个标志置为1
+     */
     if (ngx_use_accept_mutex) {
+        /**
+         * ngx_accept_disabled表示此时满负荷，没必要再处理新连接了，我们在nginx.conf曾经配置了每一个nginx worker进程能够处理的最大连接数，
+         * 当达到最大数的7/8时，ngx_accept_disabled为正，说明本nginx worker进程非常繁忙，将不再去处理新连接，这也是个简单的负载均衡
+         */
         if (ngx_accept_disabled > 0) {
             ngx_accept_disabled--;
 
         } else {
+            /**
+             * ngx_accept_mutex.lock域的内存是在共享内存中，因而，所有worker进程都共享它。
+             * 
+             * 尝试锁ngx_accept_mutex，只有成功获取锁的进程，才会将listen套接字放入epoll中。
+             * 因此，这就保证了只有一个worker进程拥有监听套接口，故所有进程阻塞在epoll_wait时，不会出现惊群现象。
+             *
+             * 多个worker仅有一个可以得到这把锁，获取成功的话ngx_accept_mutex_held被置为1，拿到锁，意味着监听句柄被放到本进程的epoll中了，
+             * 如果没有拿到锁，则监听句柄会被从epoll中取出。
+             */
             if (ngx_trylock_accept_mutex(cycle) == NGX_ERROR) {
                 return;
             }
 
+            /**
+             * 拿到锁的话，置flag为NGX_POST_EVENTS
+             * 这意味着ngx_process_events(epoll被设置为ngx_epoll_process_events)函数中，任何事件都将延后处理，
+             * 会把accept事件都放到ngx_posted_accept_events链表中，epollin|epollout事件都放到ngx_posted_events链表中
+             */
             if (ngx_accept_mutex_held) {
-                flags |= NGX_POST_EVENTS;
+                flags |= NGX_POST_EVENTS;   //设置为后置处理
 
             } else {
+                /**
+                 * 拿不到锁，也就不会处理监听的句柄，这个timer实际是传给epoll_wait的超时时间，
+                 * 修改为最大ngx_accept_mutex_delay意味着epoll_wait更短的超时返回，以免新连接长时间没有得到处理
+                 *
+                 * 如果一个工作进程没有获取到accept互斥锁，它将在最少在ngx_accept_mutex_delay毫秒后重新获取。这个值默认设置为500
+                 */
                 if (timer == NGX_TIMER_INFINITE
                     || timer > ngx_accept_mutex_delay)
                 {
@@ -237,8 +271,14 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         }
     }
 
-    delta = ngx_current_msec;
+    delta = ngx_current_msec;   //如果flags中有NGX_UPDATE_TIME，该变量会发生变化
 
+    /**
+     * 事件处理核心函数
+     * 
+     * #define ngx_process_events  ngx_event_actions.process_events
+     * 如果调用epoll模块，有效调用为ngx_epoll_process_events函数
+     */
     (void) ngx_process_events(cycle, timer, flags);
 
     delta = ngx_current_msec - delta;
@@ -246,20 +286,36 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "timer delta: %M", delta);
 
+    /**
+     * 先处理ngx_posted_accept_events队列中的事件，处理完毕后立即释放ngx_accept_mutex锁，
+     * 接着再处理ngx_posted_events队列中事件。这样大大减少了ngx_accept_mutex锁占用的时间。
+     */
     ngx_event_process_posted(cycle, &ngx_posted_accept_events);
 
+    //释放锁后再处理下面的EPOLLIN EPOLLOUT请求
     if (ngx_accept_mutex_held) {
-        ngx_shmtx_unlock(&ngx_accept_mutex);
+        ngx_shmtx_unlock(&ngx_accept_mutex);    //释放accept互斥锁
     }
 
+    /**
+     * 这里的delta其实是用来反应epoll_wait阻塞了多长时间，所以delta等于0时表示本次epoll_wait几乎没有阻塞，
+     * 所以上一次的事件循环和本次事件循环是在几乎0延迟的时间内完成的，当前时间没有发生改变，故不需要去检查定时事件。
+     */
     if (delta) {
-        ngx_event_expire_timers();
+        ngx_event_expire_timers();  //定时器事件。检查定时器红黑树中是否有已经超时或者是到点的定时事件，如果有，则执行事件回调函数
     }
 
-    ngx_event_process_posted(cycle, &ngx_posted_events);
+    /**
+     * 然后再处理正常的数据读写请求。
+     * 因为这些请求耗时久，所以在ngx_process_events里NGX_POST_EVENTS标志将事件都放入ngx_posted_events链表中，延迟到锁释放了再处理。
+     */
+    ngx_event_process_posted(cycle, &ngx_posted_events);    //在进程中直接处理，回调函数
 }
 
-
+/**
+ *
+ * 添加事件到epoll事件监听队列中
+ */
 ngx_int_t
 ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags)
 {
@@ -583,7 +639,12 @@ ngx_timer_signal_handler(int signo)
 
 #endif
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return NGX_OK|NGX_ERROR
+ *  
+ *  初始化event模块
+ */
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
 {
@@ -595,9 +656,14 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     ngx_event_conf_t    *ecf;
     ngx_event_module_t  *module;
 
-    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);   //core配置
+    /**
+     *  \file ngx_event.h
+     *  event配置
+     */
     ecf = ngx_event_get_conf(cycle->conf_ctx, ngx_event_core_module);
 
+    //如果采用多进程且需使用accept mutex互斥锁
     if (ccf->master && ccf->worker_processes > 1 && ecf->accept_mutex) {
         ngx_use_accept_mutex = 1;
         ngx_accept_mutex_held = 0;
@@ -618,10 +684,13 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
-    ngx_queue_init(&ngx_posted_accept_events);
-    ngx_queue_init(&ngx_posted_events);
+    ngx_queue_init(&ngx_posted_accept_events);  //存放新连接事件的队列
+    ngx_queue_init(&ngx_posted_events);         //存放普通事件的队列
 
-    //初始化定时器（红黑树建数操作）
+    /**
+     *  \file ngx_event_timer.c
+     *  定时器红黑树的初始化。#时间事件基础#  //为epoll_wait提供了等待时间
+     */
     if (ngx_event_timer_init(cycle->log) == NGX_ERROR) {
         return NGX_ERROR;
     }
@@ -631,12 +700,18 @@ ngx_event_process_init(ngx_cycle_t *cycle)
             continue;
         }
 
-        if (ngx_modules[m]->ctx_index != ecf->use) {
+        if (ngx_modules[m]->ctx_index != ecf->use) {    //是否配置了use指令
             continue;
         }
 
         module = ngx_modules[m]->ctx;
 
+        /**
+         *  \file modules/ngx_devpoll_module.c|
+         *  modules/ngx_epoll_module.c
+         *  
+         *  对于配置为"use epoll;"时，其有效调用是ngx_epoll_module.actions.ngx_epoll_init(在modules/ngx_epoll_module.c中赋值)
+         */
         if (module->actions.init(cycle, ngx_timer_resolution) != NGX_OK) {
             /* fatal */
             exit(2);
@@ -647,7 +722,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #if !(NGX_WIN32)
 
-    if (ngx_timer_resolution && !(ngx_event_flags & NGX_USE_TIMER_EVENT)) {
+    //是否设置超时
+    if (ngx_timer_resolution && !(ngx_event_flags & NGX_USE_TIMER_EVENT)) { //配置指令timer_resolution
         struct sigaction  sa;
         struct itimerval  itv;
 
@@ -684,6 +760,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
         cycle->files_n = (ngx_uint_t) rlmt.rlim_cur;
 
+        //为ngx_connection_t分配空间
         cycle->files = ngx_calloc(sizeof(ngx_connection_t *) * cycle->files_n,
                                   cycle->log);
         if (cycle->files == NULL) {
@@ -702,6 +779,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
+    //创建连接池
     cycle->connections =
         ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
@@ -710,6 +788,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
     c = cycle->connections;
 
+    //创建事件描述结构
     cycle->read_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
                                    cycle->log);
     if (cycle->read_events == NULL) {
@@ -736,6 +815,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     i = cycle->connection_n;
     next = NULL;
 
+    //将数组中的所有slot用指针串起来，形成一个链表
     do {
         i--;
 
@@ -747,11 +827,15 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         next = &c[i];
     } while (i);
 
+    //free_connections指向一个可用的slot  
     cycle->free_connections = next;
     cycle->free_connection_n = cycle->connection_n;
 
     /* for each listening socket */
 
+    /**
+     * 添加所有Listen Socket到epoll读事件中
+     */
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
 
@@ -761,6 +845,10 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         }
 #endif
 
+        /**
+         *  \file ../../src/core/ngx_connection.h|c
+         *  新建ngx_connection_t结构连接，地址复用ngx_cycle->free_connections空闲内存
+         */
         c = ngx_get_connection(ls[i].fd, cycle->log);
 
         if (c == NULL) {
@@ -838,7 +926,12 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         }
 
 #else
-
+        
+        /**
+         * 事件触发时回调函数
+         * 
+         * 此回调会在ngx_epoll_process_events中当epoll事件发生时被调用。如读(新连接)事件触发
+         */
         rev->handler = ngx_event_accept;
 
         if (ngx_use_accept_mutex
@@ -850,6 +943,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
             continue;
         }
 
+        //Listen Socket添加到epoll事件监听中
         if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
             return NGX_ERROR;
         }

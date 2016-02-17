@@ -26,8 +26,12 @@ typedef struct {
 
 #endif
 
-
+/**
+ * event事件结构
+ * 表示内部发生的事件
+ */
 struct ngx_event_s {
+    //该事件所在的连接。即经常用于存放ngx_connection_t数据信息。便于操作Listen Socket或者Connect Socket
     void            *data;
 
     unsigned         write:1;
@@ -108,6 +112,7 @@ struct ngx_event_s {
     unsigned         available:1;
 #endif
 
+    //事件处理函数
     ngx_event_handler_pt  handler;
 
 
@@ -176,21 +181,51 @@ struct ngx_event_aio_s {
 
 
 typedef struct {
+    /**
+     * 添加事件方法，它将负责把1个感兴趣的事件添加到操作系统提供的事件驱动机制（如epoll，kqueue等）中，
+     * 这样，在事件发生之后，将可以在调用下面的process_envets时获取这个事件。
+     */
     ngx_int_t  (*add)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    /**
+     * 删除事件方法，它将一个已经存在于事件驱动机制中的事件移除，
+     * 这样以后即使这个事件发生，调用process_events方法时也无法再获取这个事件
+     */
     ngx_int_t  (*del)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
 
+    /**
+     * 启用一个事件，目前事件框架不会调用这个方法，大部分事件驱动模块对于该方法的实现都是与上面的add方法完全一致的
+     */
     ngx_int_t  (*enable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
+    /**
+     * 禁用一个事件，目前事件框架不会调用这个方法，大部分事件驱动模块对于该方法的实现都是与上面的del方法一致
+     */
     ngx_int_t  (*disable)(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags);
 
+    /**
+     * 向事件驱动机制中添加一个新的连接，这意味着连接上的读写事件都添加到事件驱动机制中了
+     */
     ngx_int_t  (*add_conn)(ngx_connection_t *c);
+    /**
+     * 从事件驱动机制中一出一个连续的读写事件
+     */
     ngx_int_t  (*del_conn)(ngx_connection_t *c, ngx_uint_t flags);
 
     ngx_int_t  (*notify)(ngx_event_handler_pt handler);
 
+    /**
+     * 在正常的工作循环中，将通过调用process_events方法来处理事件。
+     * 这个方法仅在ngx_process_events_and_timers方法中调用，它是处理，分发事件的核心
+     */
     ngx_int_t  (*process_events)(ngx_cycle_t *cycle, ngx_msec_t timer,
                    ngx_uint_t flags);
 
+    /**
+     * 初始化事件驱动模块的方法
+     */
     ngx_int_t  (*init)(ngx_cycle_t *cycle, ngx_msec_t timer);
+    /**
+     * 退出事件驱动模块前调用的方法。
+     */
     void       (*done)(ngx_cycle_t *cycle);
 } ngx_event_actions_t;
 
@@ -429,7 +464,7 @@ typedef struct {
     ngx_uint_t    use;
 
     ngx_flag_t    multi_accept;
-    ngx_flag_t    accept_mutex;
+    ngx_flag_t    accept_mutex;     //解决惊群问题
 
     ngx_msec_t    accept_mutex_delay;
 
@@ -442,11 +477,15 @@ typedef struct {
 
 
 typedef struct {
+    //事件模块的名称
     ngx_str_t              *name;
 
+    //在解析配置项前，这个回调方法用于创建存储配置项参数的结构体
     void                 *(*create_conf)(ngx_cycle_t *cycle);
+    //在解析配置项完成后，init_conf方法会被调用，用于综合处理当前事件模块感兴趣的全部配置项。
     char                 *(*init_conf)(ngx_cycle_t *cycle, void *conf);
 
+    //对于事件驱动机制，每个事件模块需要实现的10个抽象方法
     ngx_event_actions_t     actions;
 } ngx_event_module_t;
 

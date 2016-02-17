@@ -309,8 +309,8 @@ ngx_http_init_connection(ngx_connection_t *c)
     c->log_error = NGX_ERROR_INFO;
 
     rev = c->read;
-    rev->handler = ngx_http_wait_request_handler;
-    c->write->handler = ngx_http_empty_handler;
+    rev->handler = ngx_http_wait_request_handler;   //读事件的handler设置为ngx_http_wait_request_handler
+    c->write->handler = ngx_http_empty_handler;     //连接上的写事件的回调 这个为空，在开始只有读事件
 
 #if (NGX_HTTP_V2)
     if (hc->addr_conf->http2) {
@@ -352,24 +352,32 @@ ngx_http_init_connection(ngx_connection_t *c)
         /* the deferred accept(), iocp */
 
         if (ngx_use_accept_mutex) {
-            ngx_post_event(rev, &ngx_posted_events);
+            ngx_post_event(rev, &ngx_posted_events);    //添加队列
             return;
         }
 
-        rev->handler(rev);
+        rev->handler(rev);  //用上面绑定函数处理读事件
         return;
     }
 
     ngx_add_timer(rev, c->listening->post_accept_timeout);
     ngx_reusable_connection(c, 1);
 
+    /**
+     * \file ../../event/ngx_event.h|c
+     * 将新建的连接的描述符添加到事件循环
+     *
+     * 但是在使用epoll时添加到事件循环的工作已经在ngx_add_conn中完成，所以这个函数不会做任何操作。
+     */
     if (ngx_handle_read_event(rev, 0) != NGX_OK) {
         ngx_http_close_connection(c);
         return;
     }
 }
 
-
+/**
+ * epoll触发读事件回调函数，即客户端发送消息需调用的回调函数。
+ */
 static void
 ngx_http_wait_request_handler(ngx_event_t *rev)
 {

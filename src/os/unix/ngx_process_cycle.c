@@ -831,6 +831,13 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "worker cycle");
 
+        /**
+         *  \file ../../event/ngx_event.h|c
+         *  事件循环核心函数
+         *  
+         *  对于使用epoll模块, 其调用实质上是ngx_epoll_module.actions.ngx_epoll_process_events
+         *  该函数调用epoll_wait来等待各种注册的事件的发生。默认情况是阻塞等待。
+         */
         ngx_process_events_and_timers(cycle);
 
 		//收到NGX_CMD_TERMINATE命令
@@ -1023,7 +1030,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
          *  ../../misc/ngx_google_perftools_module.c
          *  
          *  初始化worker中各模块
-         *  这里主要是ngx_event_core_module会调用所使用的epoll模块的action.init方法，来初始化epoll
+         *  这里主要是ngx_event_core_module会调用所使用的epoll模块的action.init方法(ngx_event_process_init)，来初始化epoll
          */
         if (ngx_modules[i]->init_process) {
             if (ngx_modules[i]->init_process(cycle) == NGX_ERROR) {

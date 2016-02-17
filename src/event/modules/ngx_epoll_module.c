@@ -310,7 +310,13 @@ failed:
 
 #endif
 
-
+/**
+ *  @param [in] cycle 
+ *  @param [in] timer 定时器精度ngx_timer_resolution
+ *  @return NGX_OK|NGX_ERROR
+ *  
+ *  epoll初始化
+ */
 static ngx_int_t
 ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 {
@@ -345,6 +351,7 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
             ngx_free(event_list);
         }
 
+        //初始化event_list数组。数组大小是配置项epoll_events的參数
         event_list = ngx_alloc(sizeof(struct epoll_event) * epcf->events,
                                cycle->log);
         if (event_list == NULL) {
@@ -354,14 +361,25 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 
     nevents = epcf->events;
 
+    /**
+     *  \file ../../../os/unix/ngx_os.c
+     *  指明客户端连接事件触发时，读写I/O的方法。如消息发送与接受
+     *
+     *  \file ../../../os/unix/ngx_linux_init.c
+     *  linux中等同于变量ngx_linux_io值
+     */
     ngx_io = ngx_os_io;
 
+    /**
+     * ngx_event_actions是个全局的ngx_event_actions_t结构体
+     * 用于存储事件模块的10个函数接口
+     */
     ngx_event_actions = ngx_epoll_module_ctx.actions;
 
 #if (NGX_HAVE_CLEAR_EVENT)
-    ngx_event_flags = NGX_USE_CLEAR_EVENT
+    ngx_event_flags = NGX_USE_CLEAR_EVENT   //使用epoll的边缘触发模式
 #else
-    ngx_event_flags = NGX_USE_LEVEL_EVENT
+    ngx_event_flags = NGX_USE_LEVEL_EVENT   //使用epoll的水平触发模式
 #endif
                       |NGX_USE_GREEDY_EVENT
                       |NGX_USE_EPOLL_EVENT;
@@ -497,7 +515,9 @@ ngx_epoll_done(ngx_cycle_t *cycle)
     nevents = 0;
 }
 
-
+/** 
+ * 把一个感兴趣的事件加入到epoll中
+ */
 static ngx_int_t
 ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 {
@@ -507,6 +527,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     ngx_connection_t    *c;
     struct epoll_event   ee;
 
+    //每一个事件的data成员都存放着其相应的ngx_connection_t连接
     c = ev->data;
 
     events = (uint32_t) event;
@@ -526,15 +547,18 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 #endif
     }
 
+    //依据是否为活跃事件确定是改动还是加入事件
     if (e->active) {
-        op = EPOLL_CTL_MOD;
+        op = EPOLL_CTL_MOD; //改动epoll中的事件
         events |= prev;
 
     } else {
-        op = EPOLL_CTL_ADD;
+        op = EPOLL_CTL_ADD; //加入新事件到epoll中
     }
 
+    //设置事件类型
     ee.events = events | (uint32_t) flags;
+    //data的ptr成员指向一个连接，同一时候把最低位设置为instance标志，事件分发程序将这个标志提取出来
     ee.data.ptr = (void *) ((uintptr_t) c | ev->instance);
 
     ngx_log_debug3(NGX_LOG_DEBUG_EVENT, ev->log, 0,
@@ -547,6 +571,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
         return NGX_ERROR;
     }
 
+    //改动active标志。表示当前事件是活跃的
     ev->active = 1;
 #if 0
     ev->oneshot = (flags & NGX_ONESHOT_EVENT) ? 1 : 0;
@@ -613,7 +638,12 @@ ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     return NGX_OK;
 }
 
-
+/**
+ * @param [in] c connect连接
+ * @return int NGX_OK|NGX_ERROR
+ * 
+ * 添加连接到epoll事件读、写事件监听队列中
+ */
 static ngx_int_t
 ngx_epoll_add_connection(ngx_connection_t *c)
 {
@@ -696,7 +726,10 @@ ngx_epoll_notify(ngx_event_handler_pt handler)
 
 #endif
 
-
+/**
+ * 收集、分发事件
+ * 事件触发时，只有一个worker进入
+ */
 static ngx_int_t
 ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 {
@@ -714,12 +747,13 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "epoll timer: %M", timer);
 
+    //等待事件，最长等待时间为timer；nginx为事件专门用红黑树维护了一个计时器
     events = epoll_wait(ep, event_list, (int) nevents, timer);
 
     err = (events == -1) ? ngx_errno : 0;
 
     if (flags & NGX_UPDATE_TIME || ngx_event_timer_alarm) {
-        ngx_time_update();
+        ngx_time_update();  //更新时间
     }
 
     if (err) {
@@ -753,11 +787,15 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     for (i = 0; i < events; i++) {
         c = event_list[i].data.ptr;
 
+        //提取出instance标志
         instance = (uintptr_t) c & 1;
+        //屏蔽最后一位计算出真正的连接对象的地址
         c = (ngx_connection_t *) ((uintptr_t) c & (uintptr_t) ~1);
 
+        //取出读事件
         rev = c->read;
 
+        //推断这个读事件是否过期
         if (c->fd == -1 || rev->instance != instance) {
 
             /*
@@ -770,6 +808,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
             continue;
         }
 
+        //获得事件类型
         revents = event_list[i].events;
 
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
@@ -802,6 +841,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
             revents |= EPOLLIN|EPOLLOUT;
         }
 
+        //读事件触发且该事件是活跃的
         if ((revents & EPOLLIN) && rev->active) {
 
 #if (NGX_HAVE_EPOLLRDHUP)
@@ -812,19 +852,32 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 
             rev->ready = 1;
 
+            //事件需要延后处理
             if (flags & NGX_POST_EVENTS) {
+                /**
+                 * 如果要在post队列中延后处理该事件，首先要判断它是新连接事件还是普通事件
+                 * 以确定是把它加入到ngx_posted_accept_events队列或者ngx_posted_events队列中
+                 */
                 queue = rev->accept ? &ngx_posted_accept_events
                                     : &ngx_posted_events;
-
+                
+                //将该事件添加到相应的延后队列中。@ngx_locked_post_event(rev, queue);
                 ngx_post_event(rev, queue);
 
             } else {
+                /**
+                 * 立即调用事件回调方法来处理这个事件，
+                 * Listen Socket连接为ngx_event_accept，ngx_event_process_init被赋值 \file ../ngx_event_accept.c
+                 * 
+                 */
                 rev->handler(rev);
             }
         }
 
+        //取出写事件
         wev = c->write;
 
+        //写事件触发且该事件是活跃的
         if ((revents & EPOLLOUT) && wev->active) {
 
             if (c->fd == -1 || wev->instance != instance) {
@@ -841,10 +894,13 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 
             wev->ready = 1;
 
+            //事件需要延后处理
             if (flags & NGX_POST_EVENTS) {
+                //将该事件添加到相应的延后队列中，普通队列。@ngx_locked_post_event(rev, queue);
                 ngx_post_event(wev, &ngx_posted_events);
 
             } else {
+                //立即调用事件回调方法来处理这个事件
                 wev->handler(wev);
             }
         }

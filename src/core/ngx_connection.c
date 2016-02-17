@@ -1009,7 +1009,13 @@ ngx_close_listening_sockets(ngx_cycle_t *cycle)
     cycle->listening.nelts = 0;
 }
 
-
+/**
+ * @param [in] s socketFD
+ * @param [out] log 日志
+ * @return ngx_connection_t * 指向空闲连接指针
+ * 
+ * 从connections连接池中获取一个空闲的连接内存，用来存放本次FD的连接
+ */
 ngx_connection_t *
 ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
 {
@@ -1027,6 +1033,7 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
         return NULL;
     }
 
+    //从free_connecionts处就能够直接获得一个可用的slot
     c = ngx_cycle->free_connections;
 
     if (c == NULL) {
@@ -1042,6 +1049,7 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
         return NULL;
     }
 
+    //移动free_connections指针到获取的C的下一个可用slot上
     ngx_cycle->free_connections = c->data;
     ngx_cycle->free_connection_n--;
 
@@ -1078,11 +1086,18 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
     return c;
 }
 
-
+/**
+ * @param [in] c 连接对象
+ * @return void
+ * 
+ * 从connections连接池释放本次连接占用内存
+ */
 void
 ngx_free_connection(ngx_connection_t *c)
 {
+    //规划的slot c指针可用的slot链表头
     c->data = ngx_cycle->free_connections;
+    //移动free_connections到c上
     ngx_cycle->free_connections = c;
     ngx_cycle->free_connection_n++;
 
