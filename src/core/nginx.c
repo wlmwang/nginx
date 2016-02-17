@@ -5,6 +5,7 @@
  */
 
 /**
+ * 检测配置：
  * os环境相关配置
  * gcc环境相关配置，包括configure参数
  * include系统库

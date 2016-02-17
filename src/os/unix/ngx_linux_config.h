@@ -16,15 +16,15 @@
 #define _FILE_OFFSET_BITS  64	//off_t 突破单文件4G大小限制，系统库sys/types.h中使用
 
 #include <sys/types.h>			//各种类型定义，包括u_char/u_int/gid_t/pid_t/off_t/uid_t/size_t/ssize_t/mode_t/tm/clock_t
-#include <sys/time.h>			//时间相关
+#include <sys/time.h>			//时间相关，该系统库通常会包含c标准库<time.h>
 #include <unistd.h>				//POSIX标准库 win平台<windows.h>
 #include <stdarg.h>				//可变参数表 
 #include <stddef.h>             /* offsetof() */	//#define offsetof(s,m) (size_t)&(((s *)0)->m) 计算struct成员变量偏移量
 #include <stdio.h>				//标准I/O库
-#include <stdlib.h>				//公用函数
-#include <ctype.h>				//字符类型 tolower isdigit
+#include <stdlib.h>				//公用函数 包含了C、C++语言的最常用的系统函数
+#include <ctype.h>				//字符分类函数 tolower isdigit
 #include <errno.h>				//定义错误码 注意没有errno=0的
-#include <string.h>				//字符串处理 memset memcpy memccpy
+#include <string.h>				//字符串处理 是C/C++的标准头文件 （一般该文件会包含头文件stddef.h）。strings.h等同于string.h（建议使用string.h）
 #include <signal.h>				//信号机制支持 
 #include <pwd.h>				//用户口令
 #include <grp.h>				//用户组 
@@ -41,14 +41,14 @@
 #include <sys/resource.h>		//资源操作 
 #include <sched.h>				//执行调度 sleep等
 
-#include <sys/socket.h>			//套接字
-#include <netinet/in.h>			//INTERNET地址族 
+#include <sys/socket.h>			//提供socket函数及数据结构
+#include <netinet/in.h>			//INTERNET地址簇（sockaddr_in）
 #include <netinet/tcp.h>        /* TCP_NODELAY, TCP_CORK */
-#include <arpa/inet.h>			//INTERNET定义 
+#include <arpa/inet.h>			//提供IP地址转换函数
 #include <netdb.h>				//网络数据库操作 
-#include <sys/un.h>				//UNIX域套接字定义 
+#include <sys/un.h>				//UNIX域地址簇 
 
-#include <time.h>               /* tzset() */
+#include <time.h>               /* tzset() */	//c标准库，一般在<sys/time.h>中已包含
 #include <malloc.h>             /* memalign() */
 #include <limits.h>             /* IOV_MAX */
 #include <sys/ioctl.h>			//I/O操作库

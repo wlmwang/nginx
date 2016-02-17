@@ -35,13 +35,13 @@
 #endif
 
 
-#include <sys/types.h>
+#include <sys/types.h>			//基本派生类型。如size_t ssize_t time_t...
 #include <sys/time.h>
 #if (NGX_HAVE_UNISTD_H)
 #include <unistd.h>
 #endif
 #if (NGX_HAVE_INTTYPES_H)
-#include <inttypes.h>
+#include <inttypes.h>			//在stdint.h基础上在提供可移植的格式控制串和转换函数。还定义了一些与stdlib.h中对应的基本算术函数和转换函数
 #endif
 #include <stdarg.h>
 #include <stddef.h>             /* offsetof() */
