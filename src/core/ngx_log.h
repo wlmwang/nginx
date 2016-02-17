@@ -23,7 +23,8 @@
 #define NGX_LOG_INFO              7
 #define NGX_LOG_DEBUG             8
 
-//调试日志类型的定义：核心模块调试日志， 分配日志调试， 互斥锁相关的日志调试， 事件日志调试， HTTP日志调试， MAIL日志调试， MYSQL日志调试。
+//调试日志类型的定义：
+//核心模块调试日志、分配日志调试、互斥锁相关的日志调试、事件日志调试、HTTP日志调试、MAIL日志调试、MYSQL日志调试。
 #define NGX_LOG_DEBUG_CORE        0x010
 #define NGX_LOG_DEBUG_ALLOC       0x020
 #define NGX_LOG_DEBUG_MUTEX       0x040
@@ -53,6 +54,7 @@ typedef void (*ngx_log_writer_pt) (ngx_log_t *log, ngx_uint_t level,
  *  日志链表
  */
 struct ngx_log_s {
+	//级别
     ngx_uint_t           log_level;
     //打开的文件
     ngx_open_file_t     *file;

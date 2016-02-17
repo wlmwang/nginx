@@ -6,7 +6,7 @@
 
 
 #ifndef NGX_HAVE_GCC_ATOMIC
-#define NGX_HAVE_GCC_ATOMIC  1			//原子类型 用于锁 unix/ngx_atomic.h
+#define NGX_HAVE_GCC_ATOMIC  1			//原子类型 用于锁 ../src/os/unix/ngx_atomic.h
 #endif
 
 
@@ -61,7 +61,7 @@
 
 
 #ifndef NGX_CPU_CACHE_LINE
-#define NGX_CPU_CACHE_LINE  64			//cpu cache line  内存对齐。(见其他文件解释)
+#define NGX_CPU_CACHE_LINE  64
 #endif
 
 

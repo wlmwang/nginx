@@ -23,7 +23,10 @@ typedef struct {
 } ngx_shmtx_sh_t;
 
 /**
- * 自旋锁
+ * 进程间互斥锁
+ * 支持原子操作则用存放在共享内存中原子变量
+ * 支持信号量，则使用信号机制
+ * 否则使用文件锁
  */
 typedef struct {
 #if (NGX_HAVE_ATOMIC_OPS)   //是否支持原子操作

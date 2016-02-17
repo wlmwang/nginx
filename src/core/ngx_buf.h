@@ -25,7 +25,6 @@ typedef struct ngx_buf_s  ngx_buf_t;
 struct ngx_buf_s {
     /**
      * pos通常是用来告诉使用者本次应该从pos这个位置开始处理内存中的数据，
-     * 这样设置是因为同一个ngx_buf_t可能被多次反复处理。
      * 当然，pos的含义是由使用它的模块定义的
      */
     u_char          *pos;
@@ -43,16 +42,16 @@ struct ngx_buf_s {
     off_t            file_pos;
     off_t            file_last;
 
-    /* 如果缓冲区用于内存，那么start指向这段内存的起始地址*/
+    //如果缓冲区用于内存，那么start指向这段内存的起始地址
     u_char          *start;         /* start of buffer */
-    /* 与start成员对应，指向缓冲区内存的末尾*/
+    //与start成员对应，指向缓冲区内存的末尾
     u_char          *end;           /* end of buffer */
     /**
      * 指向当前缓冲区的类型
      * 例如由哪个模块使用就指向这个模块的ngx_module_t变量的地址
      */
     ngx_buf_tag_t    tag;
-    /* 引用的实际文件*/
+    //引用的实际文件
     ngx_file_t      *file;
     /**
      * 当这个buf完整copy了另外一个buf的所有字段的时候，
@@ -67,7 +66,8 @@ struct ngx_buf_s {
      * 这是因为Nginx太节约内存了，分配一块内存并使用ngx_buf_t表示接收到的上游服务器响应后，
      * 在向下游客户端转发时可能会把这块内存存储到文件中，也可能直接向下游发送，
      * 此时Nginx绝不会重新复制一份内存用于新的目的，而是再次建立一个ngx_buf_t结构体指向原内存，
-     * 这样多个ngx_buf_t结构体指向了同一块内存，它们之间的关系就通过shadow成员来引用。这种设计过于复杂，通常不建议使用
+     * 这样多个ngx_buf_t结构体指向了同一块内存，它们之间的关系就通过shadow成员来引用。
+	 * 这种设计过于复杂，通常不建议使用
      */
     ngx_buf_t       *shadow;    /*具体设计可参考：写时拷贝*/
 

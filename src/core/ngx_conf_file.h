@@ -109,7 +109,7 @@ struct ngx_command_s {
 #define ngx_null_command  { ngx_null_string, 0, NULL, 0, 0, NULL }
 
 /**
- * 打开文件结构
+ * 打开文件数据结构
  */
 struct ngx_open_file_s {
     ngx_fd_t              fd;

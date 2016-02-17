@@ -61,7 +61,7 @@ ngx_event_accept(ngx_event_t *ev)
 #if (NGX_HAVE_ACCEPT4)
         if (use_accept4) {
             s = accept4(lc->fd, (struct sockaddr *) sa, &socklen,
-                        SOCK_NONBLOCK);
+                        SOCK_NONBLOCK);		//非阻塞accept版本（一般不用此函数）
         } else {
             s = accept(lc->fd, (struct sockaddr *) sa, &socklen);
         }
@@ -138,8 +138,10 @@ ngx_event_accept(ngx_event_t *ev)
 #endif
 
         /**
-         * ngx_accept_disabled主要用于实现worker进程的简单的负载均衡，在一个worker进程的空闲连接的个数小于连接池大小的1/8时，
-         * 该进程会放弃竞争accept锁，ngx_accept_disabled在ngx_process_events_and_timers函数中使用
+         * 该变量是一个阈值，如果大于0,说明当前的进程处理的连接过多。
+		 * 初始化为全部连接的7/8(负)
+		 * 
+         * ngx_accept_disabled在ngx_process_events_and_timers函数中使用
          */
         ngx_accept_disabled = ngx_cycle->connection_n / 8
                               - ngx_cycle->free_connection_n;
@@ -411,17 +413,19 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                        "accept mutex locked");
 
+		//如果本来已经获得锁，则直接返回Ok
         if (ngx_accept_mutex_held && ngx_accept_events == 0) {
             return NGX_OK;
         }
-
+		
+		//到达这里，说明重新获得锁成功，因此需要打开被关闭的listening句柄。
         if (ngx_enable_accept_events(cycle) == NGX_ERROR) {
             ngx_shmtx_unlock(&ngx_accept_mutex);
             return NGX_ERROR;
         }
 
         ngx_accept_events = 0;
-        ngx_accept_mutex_held = 1;
+        ngx_accept_mutex_held = 1;	//设置获得锁的标记
 
         return NGX_OK;
     }
@@ -429,12 +433,17 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "accept mutex lock failed: %ui", ngx_accept_mutex_held);
 
+	/**
+	 *  如果我们前面已经获得了锁，然后这次获得锁失败，
+	 *  则说明当前的listen句柄已经被其他的进程锁监听，因此此时需要从epoll中移出调已经注册的listen句柄。
+	 *  这样就很好的控制了子进程的负载均衡
+	 */
     if (ngx_accept_mutex_held) {
         if (ngx_disable_accept_events(cycle, 0) == NGX_ERROR) {
             return NGX_ERROR;
         }
 
-        ngx_accept_mutex_held = 0;
+        ngx_accept_mutex_held = 0;	//设置锁的持有为0
     }
 
     return NGX_OK;

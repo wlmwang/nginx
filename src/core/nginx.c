@@ -187,19 +187,23 @@ static char        *ngx_signal;
 static char **ngx_os_environ;
 
 /**
- * ngx三种启动方式：1.启动新的nginx 2.reload配置 3.热替换nginx代码
+ * ngx四种启动方式：
+ * 1.启动新的ngx 
+ * 2.reload
+ * 3.热替换nginx代码
+ * 4.假启动，主要用于管理ngx系统，如发送各种信号，参看配置，测试配置等
  */
 int ngx_cdecl
 main(int argc, char *const *argv)
 {
     /**
      *  \file ngx_buf.h|c
-     *  
+     *  缓冲区
      */
     ngx_buf_t        *b;
     /**
      *  \file ngx_log.h|c
-     *  
+     *  日志
      */
     ngx_log_t        *log;
     ngx_uint_t        i;

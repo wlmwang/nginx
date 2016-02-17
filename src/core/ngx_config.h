@@ -117,8 +117,7 @@ typedef intptr_t        ngx_flag_t;
 #endif
 
 /**
- * 默认内存对齐字节大小：4byte
- * tips:内存对齐主要目的是为了更好的利用cpu二级cache line，当使用这个对齐的地址调用比如memcpy操作的时候，不用跨cache line
+ * 字节对齐默认大小：4byte
  */
 #ifndef NGX_ALIGNMENT
 #define NGX_ALIGNMENT   sizeof(unsigned long)    /* platform word */

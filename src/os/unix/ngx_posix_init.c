@@ -32,7 +32,10 @@ ngx_os_io_t ngx_os_io = {
  *  @param [in] log 日志对象
  *  @return int NGX_OK|NGX_ERROR
  *  
- *  初始化系统相关变量，如内存页面大小ngx_pagesize,ngx_cacheline_size,最大连接数ngx_max_sockets等
+ *  初始化系统相关变量
+ *  如内存页面大小ngx_pagesize ngx_cacheline_size ngx_max_sockets等
+ *  
+ *  \file ngx_os.h 申明原型
  */
 ngx_int_t
 ngx_os_init(ngx_log_t *log)
@@ -41,7 +44,8 @@ ngx_os_init(ngx_log_t *log)
 
 //OS特定的初始化
 #if (NGX_HAVE_OS_SPECIFIC_INIT)
-    if (ngx_os_specific_init(log) != NGX_OK) {  //初始化内核名称和其它信息，设置全局变量ngx_os_io
+	//初始化内核名称和其它信息，设置全局变量ngx_os_io。后续用于IO操作
+    if (ngx_os_specific_init(log) != NGX_OK) {
         return NGX_ERROR;
     }
 #endif
@@ -55,16 +59,17 @@ ngx_os_init(ngx_log_t *log)
     }
     /**
      *  \file ngx_alloc.c
-     *  \brief os页大小 x86为4096
+     *  os页大小 x86为4096
      */
     ngx_pagesize = getpagesize();   //os页大小 x86为4096
     /**
-     *  \file ngx_alloc.c
-     *  \brief ngx缓存行尺寸的设置 #define NGX_CPU_CACHE_LINE 64  主要用于内存对齐
+     *  \file ../../../objs/ngx_auto_config.h
+     *  #define NGX_CPU_CACHE_LINE 64  
+     *  主要用于内存池对齐分配。即本机cpu的cache line为64，内存池起始地址也要是64的倍数
      */ 
     ngx_cacheline_size = NGX_CPU_CACHE_LINE;
 
-    //slab用到，计算要多少个数组 2^12=4096  ngx_pagesize_shift=12
+    //slab用到，计算要多少个cache line填满一页 2^12=4096  ngx_pagesize_shift=12
     for (n = ngx_pagesize; n >>= 1; ngx_pagesize_shift++) { /* void */ }
 
 #if (NGX_HAVE_SC_NPROCESSORS_ONLN)
@@ -76,8 +81,12 @@ ngx_os_init(ngx_log_t *log)
     if (ngx_ncpu < 1) {
         ngx_ncpu = 1;
     }
-
-    ngx_cpuinfo();  //调用汇编代码，获取cpu信息，主要设置ngx_cacheline_size的值
+	
+	/**
+	 *  \file ../../core/cpuinfo.c
+	 *  调用汇编代码，获取cpu信息，主要用于根据实际cpu信息设置ngx_cacheline_size的值
+	 */
+    ngx_cpuinfo();
 
     if (getrlimit(RLIMIT_NOFILE, &rlmt) == -1) {    //进程可打开最大文件描述符上限
         ngx_log_error(NGX_LOG_ALERT, log, errno,
@@ -87,7 +96,7 @@ ngx_os_init(ngx_log_t *log)
 
     ngx_max_sockets = (ngx_int_t) rlmt.rlim_cur;    //打开socket描述符最大数量
 
-//socket继承设置开关
+//socket是否可阻塞设置开关
 #if (NGX_HAVE_INHERITED_NONBLOCK || NGX_HAVE_ACCEPT4)
     ngx_inherited_nonblocking = 1;
 #else

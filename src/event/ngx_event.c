@@ -227,7 +227,8 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
      */
     if (ngx_use_accept_mutex) {
         /**
-         * ngx_accept_disabled表示此时满负荷，没必要再处理新连接了，我们在nginx.conf曾经配置了每一个nginx worker进程能够处理的最大连接数，
+         * ngx_accept_disabled表示此时满负荷，没必要再处理新连接了，
+		 * 我们在nginx.conf曾经配置了每一个nginx worker进程能够处理的最大连接数，
          * 当达到最大数的7/8时，ngx_accept_disabled为正，说明本nginx worker进程非常繁忙，将不再去处理新连接，这也是个简单的负载均衡
          */
         if (ngx_accept_disabled > 0) {
@@ -235,9 +236,8 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
         } else {
             /**
-             * ngx_accept_mutex.lock域的内存是在共享内存中，因而，所有worker进程都共享它。
-             * 
-             * 尝试锁ngx_accept_mutex，只有成功获取锁的进程，才会将listen套接字放入epoll中。
+             * \file ngx_event_accept.c
+			 * 尝试锁ngx_accept_mutex，只有成功获取锁的进程，才会将listen套接字放入epoll中。
              * 因此，这就保证了只有一个worker进程拥有监听套接口，故所有进程阻塞在epoll_wait时，不会出现惊群现象。
              *
              * 多个worker仅有一个可以得到这把锁，获取成功的话ngx_accept_mutex_held被置为1，拿到锁，意味着监听句柄被放到本进程的epoll中了，
@@ -249,7 +249,9 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
             /**
              * 拿到锁的话，置flag为NGX_POST_EVENTS
-             * 这意味着ngx_process_events(epoll被设置为ngx_epoll_process_events)函数中，任何事件都将延后处理，
+             * 这意味着当socket有数据被唤醒时，我们并不会马上accept或者说读取，而是将这个事件保存起来，然后当我们释放锁之后，才会进行accept或者读取这个句柄
+			 * 
+			 * ngx_process_events(epoll被设置为ngx_epoll_process_events)函数中，任何事件都将延后处理，
              * 会把accept事件都放到ngx_posted_accept_events链表中，epollin|epollout事件都放到ngx_posted_events链表中
              */
             if (ngx_accept_mutex_held) {
@@ -257,10 +259,11 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
             } else {
                 /**
-                 * 拿不到锁，也就不会处理监听的句柄，这个timer实际是传给epoll_wait的超时时间，
-                 * 修改为最大ngx_accept_mutex_delay意味着epoll_wait更短的超时返回，以免新连接长时间没有得到处理
-                 *
-                 * 如果一个工作进程没有获取到accept互斥锁，它将在最少在ngx_accept_mutex_delay毫秒后重新获取。这个值默认设置为500
+                 * 这个timer实际是传给epoll_wait的超时时间。让进程起到阻塞休眠效果。
+				 * 
+				 * 拿不到锁，并不会马上再去获得锁，而是设置一个时间间隔，然后在epoll休眠（休眠操作由epoll_wait超时时间控制）。
+				 * 此时如果有连接到达，当前休眠进程会被提前唤醒，然后立即accept。（该段时间所有连接都由此进程处理）
+				 * 否则，休眠ngx_accept_mutex_delay时间，然后继续try lock
                  */
                 if (timer == NGX_TIMER_INFINITE
                     || timer > ngx_accept_mutex_delay)
@@ -663,7 +666,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
      */
     ecf = ngx_event_get_conf(cycle->conf_ctx, ngx_event_core_module);
 
-    //如果采用多进程且需使用accept mutex互斥锁
+    //如果采用master-worker模式，worker数大于1，且配置文件里面有设置使用accept_mutex
     if (ccf->master && ccf->worker_processes > 1 && ecf->accept_mutex) {
         ngx_use_accept_mutex = 1;
         ngx_accept_mutex_held = 0;
