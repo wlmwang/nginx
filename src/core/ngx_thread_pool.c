@@ -64,7 +64,7 @@ static void ngx_thread_pool_exit_worker(ngx_cycle_t *cycle);
 
 static ngx_command_t  ngx_thread_pool_commands[] = {
 
-    { ngx_string("thread_pool"),
+    { ngx_string("thread_pool"),		//thread_pool default threads=32 max_queue=65536;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE23,
       ngx_thread_pool,
       0,

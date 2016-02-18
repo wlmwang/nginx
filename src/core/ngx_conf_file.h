@@ -200,11 +200,11 @@ typedef struct {
 typedef struct {
     //文件属性
     ngx_file_t            file;
-    //文件内容/配置内容
+    //配置文件，文件式缓冲|-g字符串内容，内存式缓冲
     ngx_buf_t            *buffer;
-    //-T临时配置文件内容
+    //-T启动参数。将要打印的配置放入该临时缓冲
     ngx_buf_t            *dump;
-    //读文件起始行
+    //读文件起始行，文件式缓冲时为1
     ngx_uint_t            line;
 } ngx_conf_file_t;
 

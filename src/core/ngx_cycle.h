@@ -34,7 +34,7 @@ struct ngx_shm_zone_s {
     void                     *data;
     /**
      *  \file ../os/unix/ngx_shmem.h
-     *  \brief 真正的共享内存
+     *  真正的共享内存
      */ 
     ngx_shm_t                 shm;
     //初始化函数
@@ -49,12 +49,12 @@ struct ngx_cycle_s {
      * 保存ngx中解析出的所有配置信息
      * 是一个指针数组（核心模块配置ngx_core_module|ngx_http_module等），其中每一个元素又指向一个指针数组（每个模块有核心结构体，管理其下所模块）
      * conf_ctx[]
-     *      --ngx_core_module[]
+     *      --ngx_core_conf_t[]
      *                  ---main_conf*
      *                              ---create_main_conf
      *                  ---srv_conf*
      *                  ---loc_conf*
-     *      --ngx_http_module[]
+     *      --ngx_regex_conf_t[]
      */
     void                  ****conf_ctx;
     //内存池
@@ -85,7 +85,7 @@ struct ngx_cycle_s {
     ngx_array_t               listening;
     //保存着ngx所有要操作的目录，如果目录不存在，则会试图创建，而创建目录失败将会导致ngx启动失败。
     ngx_array_t               paths;
-    //-T参数，临时打印配置信息
+    //-T启动参数。将要打印的配置放入该临时缓冲。元素为ngx_conf_dump_t
     ngx_array_t               config_dump;
     //保存ngx已经打开的所有文件(ngx_open_file_t结构体)的单链表。
     ngx_list_t                open_files;

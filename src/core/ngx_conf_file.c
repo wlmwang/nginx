@@ -151,8 +151,8 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         cf->conf_file = &conf_file;
 
         /**
-         *  \file ../../os/unix/ngx_file.h
-         *  获取&设置cf->conf_file->file.info文件描述信息。
+         *  \file ../os/unix/ngx_file.h
+         *  获取设置cf->conf_file->file.info文件描述信息。
          *  #define ngx_fd_info(fd, sb) fstat(fd, sb)  跟随符号链接文件
          */
         if (ngx_fd_info(fd, &cf->conf_file->file.info) == NGX_FILE_ERROR) {
@@ -195,8 +195,8 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             }
 
             /**
-             *  \file ../../os/unix/ngx_file.h
-             *  \brief 获取文件大小。
+             *  \file ../os/unix/ngx_file.h
+             *  获取文件大小。
              *  #define ngx_file_size(sb) (sb)->st_size
              */
             size = ngx_file_size(&cf->conf_file->file.info);
@@ -225,7 +225,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             cf->conf_file->dump = NULL;
         }
 
-    } else if (cf->conf_file->file.fd != NGX_INVALID_FILE) {    //内存配置字符串
+    } else if (cf->conf_file->file.fd != NGX_INVALID_FILE) {    //自身配置文件
 
         type = parse_block;
 

@@ -259,7 +259,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         module = ngx_modules[i]->ctx;
 
         /**
-         *  \file nginx.c|-ngx_log.c|ngx_regex.c|ngx_thread_pool.c|
+         *  \file nginx.c|-ngx_log.c|ngx_regex.c|-ngx_thread_pool.c|
          *  -../../event/ngx_event.c|../../event/ngx_event_openssl.c|
          *  -../../http/ngx_http.c|
          *  #../../mail/ngx_mail.c|
