@@ -33,7 +33,7 @@ struct ngx_shm_zone_s {
     //指向自定义数据结构，可能指向本地地址
     void                     *data;
     /**
-     *  \file ../../os/unix/ngx_shmem.h
+     *  \file ../os/unix/ngx_shmem.h
      *  \brief 真正的共享内存
      */ 
     ngx_shm_t                 shm;
@@ -122,7 +122,7 @@ struct ngx_cycle_s {
 };
 
 /**
- * ngx core 命令集结构体。与配置文件中全局域一一对应
+ * ngx全局配置，与配置文件中全局域一一对应
  */
 typedef struct {
      ngx_flag_t               daemon;

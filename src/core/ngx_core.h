@@ -30,7 +30,7 @@ typedef struct ngx_thread_task_s  ngx_thread_task_t;
 #endif
 
 typedef void (*ngx_event_handler_pt)(ngx_event_t *ev);
-typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
+typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);		//当新的tcp连接成功建立后的处理方法
 
 
 #define  NGX_OK          0

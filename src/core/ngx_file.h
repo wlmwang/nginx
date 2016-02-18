@@ -14,13 +14,19 @@
 
 
 struct ngx_file_s {
+    //文件句柄描述符
     ngx_fd_t                   fd;
+    //文件名称
     ngx_str_t                  name;
+    //文件大小等资源信息，实际就是Linux系统定义的stat结构(typedef struct stat ngx_file_info_t)
     ngx_file_info_t            info;
 
+    //该偏移量告诉ngx现在处理到文件何处了，一般不用设置它，ngx框架会根据当前发送状态设置它
     off_t                      offset;
+    //当前文件系统偏移量，一般不用设置它，同样由ngx框架设置
     off_t                      sys_offset;
 
+    //日志对象，相关的日志会输出到log指定的日志文件中
     ngx_log_t                 *log;
 
 #if (NGX_THREADS)
@@ -33,7 +39,9 @@ struct ngx_file_s {
     ngx_event_aio_t           *aio;
 #endif
 
+    //目前未使用
     unsigned                   valid_info:1;
+    //与配置文件中的directio配置项相对应，在发送大文件时可以设为1
     unsigned                   directio:1;
 };
 
@@ -46,15 +54,21 @@ typedef void (*ngx_path_loader_pt) (void *data);
 
 
 typedef struct {
+    //路径数据字符串
     ngx_str_t                  name;
+    //子目录文件名称长度大小包括斜杠长度 /ABC/sub1/sub2/sub3/ --> 3+1+3+1+3+1=12
     size_t                     len;
+    //3级子目录，每个子目录的名称长度
     size_t                     level[3];
 
     ngx_path_manager_pt        manager;
     ngx_path_loader_pt         loader;
+    //设置为ngx_http_file_cache_t 在ngx_http_file_cache_set_slot()函数中设置
     void                      *data;
 
+    //该路径的来源的配置文件 NULL表示默认路径
     u_char                    *conf_file;
+    //该路径在来源的配置文件中的行数，主要用于记录日志，排查错误
     ngx_uint_t                 line;
 } ngx_path_t;
 
@@ -66,6 +80,7 @@ typedef struct {
 
 
 typedef struct {
+    //临时文件信息
     ngx_file_t                 file;
     off_t                      offset;
     ngx_path_t                *path;
@@ -74,19 +89,27 @@ typedef struct {
 
     ngx_uint_t                 access;
 
+    //日志等级
     unsigned                   log_level:8;
+    //说明临时文件是否一直存在于文件系统中
     unsigned                   persistent:1;
+    //文件的清理方式（是否将文件在磁盘上删除）
     unsigned                   clean:1;
 } ngx_temp_file_t;
 
 
 typedef struct {
+    //文件的访问权限
     ngx_uint_t                 access;
+    //目录的访问权限
     ngx_uint_t                 path_access;
+    //文件的最后修改时间
     time_t                     time;
     ngx_fd_t                   fd;
 
+    //当访问的文件目录不存在时，将创建目录
     unsigned                   create_path:1;
+    //删除文件
     unsigned                   delete_file:1;
 
     ngx_log_t                 *log;
@@ -110,9 +133,11 @@ typedef ngx_int_t (*ngx_tree_init_handler_pt) (void *ctx, void *prev);
 typedef ngx_int_t (*ngx_tree_handler_pt) (ngx_tree_ctx_t *ctx, ngx_str_t *name);
 
 struct ngx_tree_ctx_s {
+    //文件大小
     off_t                      size;
     off_t                      fs_size;
     ngx_uint_t                 access;
+    //最后修改时间
     time_t                     mtime;
 
     ngx_tree_init_handler_pt   init_handler;

@@ -15,6 +15,10 @@
 
 typedef struct ngx_queue_s  ngx_queue_t;
 
+/**
+ *  双向链表
+ *  队列结构 sizeof(ngx_queue_t)=8
+ */
 struct ngx_queue_s {
     ngx_queue_t  *prev;
     ngx_queue_t  *next;

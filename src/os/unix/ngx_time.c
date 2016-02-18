@@ -47,7 +47,7 @@ ngx_timezone_update(void)
 
     t = localtime(&s);
 
-    strftime(buf, 4, "%H", t);
+    strftime(buf, 4, "%H", t);  //24小时制的小时
 
 #endif
 }

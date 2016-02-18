@@ -126,7 +126,9 @@ static ngx_conf_num_bounds_t  ngx_http_gzip_comp_level_bounds = {
 static ngx_conf_post_handler_pt  ngx_http_gzip_window_p = ngx_http_gzip_window;
 static ngx_conf_post_handler_pt  ngx_http_gzip_hash_p = ngx_http_gzip_hash;
 
-
+/**
+ * gzip命令集
+ */
 static ngx_command_t  ngx_http_gzip_filter_commands[] = {
 
     { ngx_string("gzip"),

@@ -12,7 +12,13 @@
 static void *ngx_palloc_block(ngx_pool_t *pool, size_t size);
 static void *ngx_palloc_large(ngx_pool_t *pool, size_t size);
 
-
+/**
+ *  @param [in] size 字节大小
+ *  @param [in] log log对象
+ *  @return ngx_pool_t *全局内存池地址
+ *  
+ *  新创建节点大小为size的内存池对象。可分配内存为size - sizeof(ngx_pool_t)
+ */
 ngx_pool_t *
 ngx_create_pool(size_t size, ngx_log_t *log)
 {
@@ -115,7 +121,13 @@ ngx_reset_pool(ngx_pool_t *pool)
     pool->large = NULL;
 }
 
-
+/**
+ *  @param [in] pool pool内存池
+ *  @param [in] size 内存大小
+ *  @return void * 分配到内存的起始地址
+ *  
+ *  从内存池pool中以字节对齐方式分配size大小内存
+ */
 void *
 ngx_palloc(ngx_pool_t *pool, size_t size)
 {
@@ -124,28 +136,34 @@ ngx_palloc(ngx_pool_t *pool, size_t size)
 
     if (size <= pool->max) {
 
-        p = pool->current;
+        p = pool->current;  //已分配到某个内存池链表节点地址
 
         do {
-            m = ngx_align_ptr(p->d.last, NGX_ALIGNMENT);
+            m = ngx_align_ptr(p->d.last, NGX_ALIGNMENT);    //计算字节对齐首地址
 
-            if ((size_t) (p->d.end - m) >= size) {
+            if ((size_t) (p->d.end - m) >= size) {  //计算此节点内存池剩余大小
                 p->d.last = m + size;
 
                 return m;
             }
 
-            p = p->d.next;
+            p = p->d.next;  //内存池链表下一个
 
         } while (p);
 
-        return ngx_palloc_block(pool, size);
+        return ngx_palloc_block(pool, size);    //创建新的内存池节点并分配size大小内存
     }
 
-    return ngx_palloc_large(pool, size);
+    return ngx_palloc_large(pool, size);    //分配大内存流程
 }
 
-
+/**
+ *  @param [in] pool pool内存池
+ *  @param [in] size 内存大小
+ *  @return void * 分配到内存的起始地址
+ *  
+ *  从内存池pool中非字节对齐方式分配size大小内存
+ */
 void *
 ngx_pnalloc(ngx_pool_t *pool, size_t size)
 {

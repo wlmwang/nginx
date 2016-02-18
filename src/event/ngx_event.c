@@ -119,14 +119,14 @@ static ngx_str_t  event_core_name = ngx_string("event_core");
 
 static ngx_command_t  ngx_event_core_commands[] = {
 
-    { ngx_string("worker_connections"),
+    { ngx_string("worker_connections"),       //worker_connection 51200;  #不能大于全局配置描述符上限。最大连接数的计算公式如下：worker_processes*worker_connections
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_connections,
       0,
       0,
       NULL },
 
-    { ngx_string("use"),
+    { ngx_string("use"),                      //use epoll;
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_use,
       0,
@@ -140,21 +140,21 @@ static ngx_command_t  ngx_event_core_commands[] = {
       offsetof(ngx_event_conf_t, multi_accept),
       NULL },
 
-    { ngx_string("accept_mutex"),
+    { ngx_string("accept_mutex"),           //accept_mutex on;  #缺省on。设置是否使用连接互斥锁进行顺序的accept()系统调用
       NGX_EVENT_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
       0,
       offsetof(ngx_event_conf_t, accept_mutex),
       NULL },
 
-    { ngx_string("accept_mutex_delay"),
+    { ngx_string("accept_mutex_delay"),     //accpet_mutex_delay 1000ms;  #缺省500ms。设置获得互斥锁的最少延迟时间
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
       0,
       offsetof(ngx_event_conf_t, accept_mutex_delay),
       NULL },
 
-    { ngx_string("debug_connection"),
+    { ngx_string("debug_connection"),       //debug_connection 172.16.44.96;  #设置指定的clients产生debug日志
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_debug_connection,
       0,

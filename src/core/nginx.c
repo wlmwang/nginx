@@ -38,87 +38,93 @@ static char *ngx_set_cpu_affinity(ngx_conf_t *cf, ngx_command_t *cmd,
 static char *ngx_set_worker_processes(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
-
+/**
+ * debug_points全局配置用到
+ */
 static ngx_conf_enum_t  ngx_debug_points[] = {
     { ngx_string("stop"), NGX_DEBUG_POINTS_STOP },
     { ngx_string("abort"), NGX_DEBUG_POINTS_ABORT },
     { ngx_null_string, 0 }
 };
 
-
+/**
+ *  \file ngx_conf_file.h
+ *  全局配置命令集，用于标识全局配置项。
+ *  ngx_core_module.commands字段用到。
+ */
 static ngx_command_t  ngx_core_commands[] = {
 
-    { ngx_string("daemon"),
+    { ngx_string("daemon"),                 //daemon off;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
       0,
       offsetof(ngx_core_conf_t, daemon),
       NULL },
 
-    { ngx_string("master_process"),
+    { ngx_string("master_process"),         //master_process  off;  #缺省为on。设置是否启用主进程？
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
       0,
       offsetof(ngx_core_conf_t, master),
       NULL },
 
-    { ngx_string("timer_resolution"),
+    { ngx_string("timer_resolution"),       //timer_resolution  100ms;  #无缺省值
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
       0,
       offsetof(ngx_core_conf_t, timer_resolution),
       NULL },
 
-    { ngx_string("pid"),
+    { ngx_string("pid"),                    //pid /var/log/nginx.pid;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
       offsetof(ngx_core_conf_t, pid),
       NULL },
 
-    { ngx_string("lock_file"),
+    { ngx_string("lock_file"),              //lock_file  /var/log/lock_file;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
       offsetof(ngx_core_conf_t, lock_file),
       NULL },
 
-    { ngx_string("worker_processes"),
+    { ngx_string("worker_processes"),       //worker_proceses  4;   #指定worker进程数
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_set_worker_processes,
       0,
       0,
       NULL },
 
-    { ngx_string("debug_points"),
+    { ngx_string("debug_points"),           //debug_points stop;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_enum_slot,
       0,
       offsetof(ngx_core_conf_t, debug_points),
       &ngx_debug_points },
 
-    { ngx_string("user"),
+    { ngx_string("user"),                   //user www users;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE12,
       ngx_set_user,
       0,
       0,
       NULL },
 
-    { ngx_string("worker_priority"),
+    { ngx_string("worker_priority"),        //worker_priority on;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_set_priority,
       0,
       0,
       NULL },
 
-    { ngx_string("worker_cpu_affinity"),
+    { ngx_string("worker_cpu_affinity"),    //worker_cpu_affinity 0001 0010 0100 1000;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_1MORE,
       ngx_set_cpu_affinity,
       0,
       0,
       NULL },
 
-    { ngx_string("worker_rlimit_nofile"),
+    { ngx_string("worker_rlimit_nofile"),   //worker_rlimit_nofile 65535;   #ngx进程打开的最多文件描述符数目
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       0,
@@ -149,14 +155,21 @@ static ngx_command_t  ngx_core_commands[] = {
       ngx_null_command
 };
 
-
+/**
+ *  \file ngx_conf_file.h
+ *  全局模块上下文，用于创建、初始化配置文件。
+ *  ngx_core_module.ctx字段用到。
+ */
 static ngx_core_module_t  ngx_core_module_ctx = {
     ngx_string("core"),
     ngx_core_module_create_conf,
     ngx_core_module_init_conf
 };
 
-
+/**
+ *  \file ngx_conf_file.h
+ *  声明ngx 全局模块
+ */
 ngx_module_t  ngx_core_module = {
     NGX_MODULE_V1,
     &ngx_core_module_ctx,                  /* module context */
@@ -173,68 +186,75 @@ ngx_module_t  ngx_core_module = {
 };
 
 
-ngx_uint_t          ngx_max_module;
+ngx_uint_t          ngx_max_module;     //module计数器，最大module个数
 
+/**
+ * 启动参数相关
+ */
 static ngx_uint_t   ngx_show_help;
 static ngx_uint_t   ngx_show_version;
 static ngx_uint_t   ngx_show_configure;
-static u_char      *ngx_prefix;
-static u_char      *ngx_conf_file;
-static u_char      *ngx_conf_params;
-static char        *ngx_signal;
+static u_char      *ngx_prefix;         //启动参数-p /usr/local/nginx   #ngx项目目录
+static u_char      *ngx_conf_file;      //启动参数-c /usr/local/nginx/nginx.conf   #ngx配置路劲
+static u_char      *ngx_conf_params;    //启动参数-g 参数
+static char        *ngx_signal;         //启动参数-s 发送信号量字符串
 
 
-static char **ngx_os_environ;
+static char **ngx_os_environ;           //系统环境指针（堆中？） **environ
 
 /**
- * ngx四种启动方式：
- * 1.启动新的ngx 
- * 2.reload
- * 3.热替换nginx代码
- * 4.假启动，主要用于管理ngx系统，如发送各种信号，参看配置，测试配置等
+ *  @param [in] argc 参数个数
+ *  @param [in] argv 参数数组
+ *  @return int
+ *  
+ *  ngx四种启动方式：
+ *  1.启动新的ngx 
+ *  2.reload
+ *  3.热替换nginx代码
+ *  4.假启动，主要用于管理ngx系统，如发送各种信号，参看配置，测试配置等
  */
 int ngx_cdecl
 main(int argc, char *const *argv)
 {
     /**
-     *  \file ngx_buf.h|c
+     *  \file ngx_buf.h
      *  缓冲区
      */
     ngx_buf_t        *b;
     /**
-     *  \file ngx_log.h|c
+     *  \file ngx_log.h
      *  日志
      */
     ngx_log_t        *log;
     ngx_uint_t        i;
     /**
-     *  \file ngx_cycle.h|c
+     *  \file ngx_cycle.h
      *  cycle对象
      */
     ngx_cycle_t      *cycle /*新的cycle对象，建立在pool上*/, init_cycle;  //旧的cycle对象，建立在栈上
     /**
-     *  \file ngx_conf_file.h|c
-     *  程序运行时配置值临时变量
+     *  \file ngx_conf_file.h
+     *  临时存放程序运行时解析的配置值
      */
     ngx_conf_dump_t  *cd;
     /**
-     *  \file ngx_cycle.h|c
-     *  ngx core命令集(与配置文件中全局域一一对应)
+     *  \file ngx_cycle.h
+     *  ngx全局配置
      */
     ngx_core_conf_t  *ccf;
 
     ngx_debug_init();   //linux为空
 
     /**
-     *  \file ../../os/unix/ngx_errno.h|c
-     *  初始化ngx_sys_errlist错误信息数组(线程安全考虑)
+     *  \file ../os/unix/ngx_errno.h|c
+     *  初始化堆中ngx_sys_errlist错误信息数组(信号安全考虑)
      *  win32为空
      */
     if (ngx_strerror_init() != NGX_OK) {
         return 1;
     }
 
-    //解析启动参数（带-h/-v/-V/-t/-T/-p/-c等参数启动时，设置对应全局变量）
+    //解析启动参数
     if (ngx_get_options(argc, argv) != NGX_OK) {
         return 1;
     }
@@ -248,7 +268,7 @@ main(int argc, char *const *argv)
     }
 
     /**
-     *  \file ../../os/unix/ngx_os.h
+     *  \file ../os/unix/ngx_os.h
      *  ngx最大socket数量限制
      */
     /* TODO */ ngx_max_sockets = -1;
@@ -264,15 +284,13 @@ main(int argc, char *const *argv)
 #endif
 
     /**
-     *  \file ../../os/unix/ngx_process.h|c
-     *  extern ngx_pid_t ngx_pid;
-     *  #define ngx_getpid getpid
+     *  \file ../os/unix/ngx_process.h
      */
     ngx_pid = ngx_getpid();
     
     /**
      *  \file ngx_log.h|c
-     *  初始化日志为默认配置
+     *  初始化日志为默认配置，此时的ngx_prefix取决于启动参数，默认为NULL（全局变量初始化）
      */
     log = ngx_log_init(ngx_prefix);
     if (log == NULL) {
@@ -291,6 +309,10 @@ main(int argc, char *const *argv)
 
     ngx_memzero(&init_cycle, sizeof(ngx_cycle_t));
     init_cycle.log = log;
+    /**
+     *  \file ngx_cycle.h
+     *  关联到ngx cycle全局对象指针上，为启动做准备
+     */
     ngx_cycle = &init_cycle;
 
     /**
@@ -302,7 +324,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    //保存启动参数信息到全局变量中（ngx_os_argv/ngx_argv/ngx_argc/ngx_os_environ）
+    //保存启动参数信息到全局变量中，其中ngx_argv参数放入堆中
     if (ngx_save_argv(&init_cycle, argc, argv) != NGX_OK) {
         return 1;
     }
@@ -313,7 +335,7 @@ main(int argc, char *const *argv)
     }
 
     /**
-     *  \file ../../os/unix/ngx_posix_init.c
+     *  \file ../os/unix/ngx_posix_init.c
      *  初始化系统相关变量 ngx_pagesize,ngx_cacheline_size,ngx_inherited_nonblocking等全局变量
      */
     if (ngx_os_init(log) != NGX_OK) {
@@ -331,7 +353,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    //热继承全局环境变量存储的Listen socket到init_cycle.listening
+    //热继承全局环境变量存储的Listen SocketFD到init_cycle.listening数组
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
@@ -544,9 +566,9 @@ ngx_show_version_info()
 
 /**
  *  @param [in/out] cycle cycle对象
- *  @return NGX_OK
+ *  @return NGX_OK|NGX_ERROR
  *  
- *  通过环境变量，历史cycle的listen socket fd的值，继承到新的cycle.listening数组中并检测fd
+ *  通过环境变量NGINX完成Listen Socket的继承
  */
 static ngx_int_t
 ngx_add_inherited_sockets(ngx_cycle_t *cycle)
@@ -554,8 +576,8 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     u_char           *p, *v, *inherited;
     ngx_int_t         s;
     /**
-     *  \file ngx_connection.h|c
-     *  Listen socket struct
+     *  \file ngx_connection.h
+     *  Listen Socket
      */ 
     ngx_listening_t  *ls;
 
@@ -568,7 +590,10 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                   "using inherited sockets from \"%s\"", inherited);
 
-    //初始化数组容量为10个ngx_listening_t结构
+    /**
+     * \file ngx_array.h|c
+     * 初始化数组容量为10个ngx_listening_t结构
+     */
     if (ngx_array_init(&cycle->listening, cycle->pool, 10,
                        sizeof(ngx_listening_t))
         != NGX_OK)
@@ -576,10 +601,10 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
-    //inherited是一个以':'或者';'分割开的listen socket fd字符串
+    //inherited是一个以':'或者';'分割开的Listen SocketFD字符串
     for (p = inherited, v = p; *p; p++) {
         if (*p == ':' || *p == ';') {
-            s = ngx_atoi(v, p - v); //string -> int
+            s = ngx_atoi(v, p - v);   //string -> int
             if (s == NGX_ERROR) {
                 ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
                               "invalid socket number \"%s\" in " NGINX_VAR
@@ -588,7 +613,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
                 break;
             }
 
-            v = p + 1;
+            v = p + 1;  //下个socket做准备
 
             ls = ngx_array_push(&cycle->listening); //返回数组可用元素地址
             if (ls == NULL) {
@@ -597,19 +622,19 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 
             ngx_memzero(ls, sizeof(ngx_listening_t));
 
-            ls->fd = (ngx_socket_t) s;  //继承Listen socket到cycle->listening数组中
+            ls->fd = (ngx_socket_t) s;  //继承Listen SocketFD到cycle->listening数组中
         }
     }
 
     /**
-     *  \file ../../os/unix/ngx_process_cycle.h|c
+     *  \file ../os/unix/ngx_process_cycle.h|c
      *  全局继承标识位
      */
     ngx_inherited = 1;
 
     /**
      *  \file ngx_connection.h|c
-     *  \brief 检测|设置|过滤fd
+     *  检测|设置|过滤fd
      */
     return ngx_set_inherited_sockets(cycle);
 }
@@ -617,7 +642,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 /**
  *  @param [in] cycle cycle对象
  *  @param [in] last 
- *  @return char ** 返回对应环境值
+ *  @return char** 返回对应环境值
  *  
  *  为本进程设置环境变量
  */
@@ -821,7 +846,13 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
     return pid;
 }
 
-
+/**
+ *  @param [in] argc 参数个数
+ *  @param [in] argv 参数字符
+ *  @return NGX_OK|NGX_ERROR
+ *  
+ *  启动参数解析。带-h/-v/-V/-t/-T/-p/-c等参数启动时，设置对应全局变量
+ */
 static ngx_int_t
 ngx_get_options(int argc, char *const *argv)
 {
@@ -949,7 +980,14 @@ ngx_get_options(int argc, char *const *argv)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象，此处仅使用log功能
+ *  @param [in] argc 参数个数
+ *  @param [in] argv 参数数组
+ *  @return NGX_OK|NGX_ERROR
+ *  
+ *  初始化全局变量ngx_os_argv/ngx_argv/ngx_argc/ngx_os_environ，其中ngx_argv参数放入堆中
+ */
 static ngx_int_t
 ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
 {
@@ -963,16 +1001,24 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
     size_t     len;
     ngx_int_t  i;
 
+    /**
+     *  \file ../os/unix/ngx_process.h
+     *  全局变量声明
+     */
     ngx_os_argv = (char **) argv;
     ngx_argc = argc;
-
+    
+    /**
+     *  \file ../os/unix/ngx_alloc.h|c
+     *  堆上申请内存
+     */
     ngx_argv = ngx_alloc((argc + 1) * sizeof(char *), cycle->log);
     if (ngx_argv == NULL) {
         return NGX_ERROR;
     }
 
     for (i = 0; i < argc; i++) {
-        len = ngx_strlen(argv[i]) + 1;
+        len = ngx_strlen(argv[i]) + 1;  //包含结尾\0
 
         ngx_argv[i] = ngx_alloc(len, cycle->log);
         if (ngx_argv[i] == NULL) {
@@ -1025,9 +1071,9 @@ ngx_process_options(ngx_cycle_t *cycle)
 
     } else {
 
-#ifndef NGX_PREFIX  //未给出configure的--prefix参数
-        //当前路径为赋给conf_prefix
-        p = ngx_pnalloc(cycle->pool, NGX_MAX_PATH); //4096
+#ifndef NGX_PREFIX  
+        //未给出configure的--prefix参数，当前路径为赋给conf_prefix
+        p = ngx_pnalloc(cycle->pool, NGX_MAX_PATH);   //4096
         if (p == NULL) {
             return NGX_ERROR;
         }

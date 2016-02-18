@@ -99,7 +99,7 @@
 
 
 #ifndef NGX_HAVE_DEFERRED_ACCEPT
-#define NGX_HAVE_DEFERRED_ACCEPT  1
+#define NGX_HAVE_DEFERRED_ACCEPT  1			//支持延迟accept
 #endif
 
 

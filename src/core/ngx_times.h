@@ -16,7 +16,9 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-//每个时间片结构体，数组元素
+/**
+ * 每个时间片结构体
+ */
 typedef struct {
     time_t      sec;
     ngx_uint_t  msec;

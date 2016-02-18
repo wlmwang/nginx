@@ -51,7 +51,7 @@ typedef void (*ngx_log_writer_pt) (ngx_log_t *log, ngx_uint_t level,
 
 
 /**
- *  日志链表
+ * 日志链表
  */
 struct ngx_log_s {
 	//级别
@@ -59,16 +59,18 @@ struct ngx_log_s {
     //打开的文件
     ngx_open_file_t     *file;
 
-    //原子单元链接
+    //链接？
     ngx_atomic_uint_t    connection;
 
+    //日志磁盘已满时间
     time_t               disk_full_time;
 
-    //日志处理器
+    //日志字符串处理函数
     ngx_log_handler_pt   handler;
     //日志数据
     void                *data;
 
+    //日志io处理函数
     ngx_log_writer_pt    writer;
     void                *wdata;
 
@@ -84,7 +86,7 @@ struct ngx_log_s {
 };
 
 
-#define NGX_MAX_ERROR_STR   2048
+#define NGX_MAX_ERROR_STR   2048    //日志最长字符串长度
 
 
 /*********************************/

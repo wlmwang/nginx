@@ -42,17 +42,19 @@ ngx_os_init(ngx_log_t *log)
 {
     ngx_uint_t  n;
 
-//OS特定的初始化
 #if (NGX_HAVE_OS_SPECIFIC_INIT)
-	//初始化内核名称和其它信息，设置全局变量ngx_os_io。后续用于IO操作
+    /**
+     *  \file ngx_linux_init.c
+     *  OS指定的初始化：初始化内核名称和其它信息，设置全局变量ngx_os_io，后续用于I/O操作基础（包括网络I/O）
+     */
     if (ngx_os_specific_init(log) != NGX_OK) {
         return NGX_ERROR;
     }
 #endif
 
     /**
-     *  \file ngx_setproctitle.c
-     *  计算**environ指针结尾地址到全局变量ngx_os_argv_last中
+     *  \file ngx_setproctitle.h|c
+     *  移动**environ到堆上
      */
     if (ngx_init_setproctitle(log) != NGX_OK) {
         return NGX_ERROR;
@@ -100,7 +102,7 @@ ngx_os_init(ngx_log_t *log)
 #if (NGX_HAVE_INHERITED_NONBLOCK || NGX_HAVE_ACCEPT4)
     ngx_inherited_nonblocking = 1;
 #else
-    ngx_inherited_nonblocking = 0;
+    ngx_inherited_nonblocking = 0;  //TODO 我的系统为0
 #endif
 
     srandom(ngx_time());    //设置random函数的种子

@@ -21,10 +21,10 @@
 #define NGX_TIME_SLOTS   64
 
 static ngx_uint_t        slot;          //当前时间片索引
-static ngx_atomic_t      ngx_time_lock; //时间片全局锁
+static ngx_atomic_t      ngx_time_lock; //时间片全局锁（非进程间共享锁）
 
 /**
- * 以下为各时间片当前值，对应模块会引用，故需ngx_time.h中申明为extern
+ * 各时间片当前值
  */
 volatile ngx_msec_t      ngx_current_msec;
 volatile ngx_time_t     *ngx_cached_time;
@@ -41,13 +41,15 @@ volatile ngx_str_t       ngx_cached_syslog_time;
  * they must not be called by a signal handler, so we use the cached
  * GMT offset value. Fortunately the value is changed only two times a year.
  */
-static ngx_int_t         cached_gmtoff; ////时区，北京"+8" 为480
+
+//时区。分钟表示，北京"+8" 为480
+static ngx_int_t         cached_gmtoff;
 #endif
 
 /**
- * 以下为个时间片数组 包括时间片本身，以及对应字符串形式
+ * 时间片数组，以及对应字符串形式
  */
-static ngx_time_t        cached_time[NGX_TIME_SLOTS];   //时间片数组（循环使用） 时间cache核心数组
+static ngx_time_t        cached_time[NGX_TIME_SLOTS];   //时间片数组（循环使用）
 static u_char            cached_err_log_time[NGX_TIME_SLOTS]
                                     [sizeof("1970/09/28 12:00:00")];
 static u_char            cached_http_time[NGX_TIME_SLOTS]
@@ -85,7 +87,7 @@ ngx_time_update(void)
 {
     u_char          *p0, *p1, *p2, *p3, *p4;
     /**
-     * file ../../os/unix/ngx_time.h
+     * file ../os/unix/ngx_time.h
      * typedef struct tm  ngx_tm_t;
      */
     ngx_tm_t         tm, gmt;

@@ -70,6 +70,9 @@ ngx_memalign(size_t alignment, size_t size, ngx_log_t *log)
 
 #elif (NGX_HAVE_MEMALIGN)
 
+/**
+ * 内存对齐申请
+ */
 void *
 ngx_memalign(size_t alignment, size_t size, ngx_log_t *log)
 {

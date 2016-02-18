@@ -13,7 +13,7 @@
 #include <ngx_core.h>
 
 /**
- * 互斥锁
+ * 互斥锁地址结构，用于创建ngx_shmtx_t
  */
 typedef struct {
     ngx_atomic_t   lock;
@@ -23,7 +23,7 @@ typedef struct {
 } ngx_shmtx_sh_t;
 
 /**
- * 进程间互斥锁
+ * 进程间自旋互斥锁
  * 支持原子操作则用存放在共享内存中原子变量
  * 支持信号量，则使用信号机制
  * 否则使用文件锁

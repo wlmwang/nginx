@@ -43,7 +43,13 @@ ngx_array_destroy(ngx_array_t *a)
     }
 }
 
-
+/**
+ *  @param [in] a 数据首地址
+ *  @return void * 下一个可用数组元素地址
+ *
+ *  返回数组下一个可用元素地址
+ *  当实际个数nelts增长到容量nalloc时，继续添加会引发数组扩容，扩展到原有容量的2倍大小（分配新的内存，原有数据的copy过来）
+ */
 void *
 ngx_array_push(ngx_array_t *a)
 {

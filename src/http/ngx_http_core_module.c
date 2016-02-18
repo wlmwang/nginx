@@ -170,7 +170,9 @@ static ngx_str_t  ngx_http_gzip_private = ngx_string("private");
 
 #endif
 
-
+/**
+ * http配置命令集
+ */
 static ngx_command_t  ngx_http_core_commands[] = {
 
     { ngx_string("variables_hash_max_size"),

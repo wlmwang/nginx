@@ -31,6 +31,13 @@ extern char **environ;
 
 static char *ngx_os_argv_last;
 
+/**
+ *  @param [in] log 日志对象
+ *  @return ngx_int_t
+ *  
+ *  移动**environ到堆上，为进程标题做准备。计算**environ指针结尾地址。
+ *  tips：argv和environ地址是相邻的。argv在低，environ在高地址
+ */
 ngx_int_t
 ngx_init_setproctitle(ngx_log_t *log)
 {
@@ -38,7 +45,7 @@ ngx_init_setproctitle(ngx_log_t *log)
     size_t       size;
     ngx_uint_t   i;
 
-    size = 0;
+    size = 0;   //environs字符串总长度
 
     for (i = 0; environ[i]; i++) {
         size += ngx_strlen(environ[i]) + 1;
@@ -49,7 +56,7 @@ ngx_init_setproctitle(ngx_log_t *log)
         return NGX_ERROR;
     }
 
-    ngx_os_argv_last = ngx_os_argv[0];
+    ngx_os_argv_last = ngx_os_argv[0];  //argv结束地址
 
     for (i = 0; ngx_os_argv[i]; i++) {
         if (ngx_os_argv_last == ngx_os_argv[i]) {
@@ -57,6 +64,7 @@ ngx_init_setproctitle(ngx_log_t *log)
         }
     }
 
+    //移动**environ到堆上
     for (i = 0; environ[i]; i++) {
         if (ngx_os_argv_last == environ[i]) {
 

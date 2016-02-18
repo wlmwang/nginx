@@ -27,7 +27,7 @@ struct ngx_listening_s {
     socklen_t           socklen;    /* size of sockaddr */
     //存储ip地址的字符串addr_text最大长度
     size_t              addr_text_max_len;
-    //以字符串形式存储ip地址
+    //以字符串形式存储ip地址(127.0.0.1:80)
     ngx_str_t           addr_text;
 
     //socket类型 tcp|udp
@@ -47,12 +47,12 @@ struct ngx_listening_s {
 
     /* handler of accepted connection */
     /**
-     *  \file ngx_core.h|c
+     *  \file ngx_core.h
      *  当新的tcp连接成功建立后的处理方法
      */
     ngx_connection_handler_pt   handler;
 
-    //目前主要用于HTTP或者mail等模块，用于保存当前监听端口对应着的所有主机名
+    //目前主要用于HTTP或者mail等模块，用于保存当前监听端口对应着的所有主机名。数组结构
     void               *servers;  /* array of ngx_http_in_addr_t, for example */
 
     ngx_log_t           log;
@@ -100,7 +100,7 @@ struct ngx_listening_s {
 #endif
     unsigned            keepalive:2;
 
-#if (NGX_HAVE_DEFERRED_ACCEPT)
+#if (NGX_HAVE_DEFERRED_ACCEPT)          //支持延时accept
     unsigned            deferred_accept:1;
     unsigned            delete_deferred:1;
     unsigned            add_deferred:1;

@@ -132,8 +132,8 @@ struct ngx_buf_s {
 
 /**
  * ngx_chain_t（链表节点）与ngx_buf_t（链表数据）配合使用形成链表数据结构
- * 例如在向用户发送HTTP包体时，就要传入ngx_chain_t链表对象
- * 最后一个ngx_chain_t的next指向NULL，否则永远不会发送成功
+ * 
+ * 例如在向用户发送HTTP包体时，就要传入ngx_chain_t链表对象，注意最后一个ngx_chain_t的next指向NULL，否则永远不会发送成功
  */
 struct ngx_chain_s {
     ngx_buf_t    *buf;

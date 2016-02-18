@@ -33,11 +33,10 @@ static ngx_connection_t  dumb;
 /* STUB */
 
 /**
- *  @param [in] old_cycle 旧的cycle对象指针。主要是继承了Listen socket所以成了old_cycle对象
+ *  @param [in] old_cycle 主函数传递cycle对象指针。注意该对象存在在main函数栈上
  *  @return ngx_cycle_t * 返回新的cycle对象指针
  *  
- *  初始化cycle函数
- *  sizeof(ngx_cycle_t) = 224
+ *  初始化ngx cycle
  */
 ngx_cycle_t *
 ngx_init_cycle(ngx_cycle_t *old_cycle)
@@ -59,8 +58,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     char                 hostname[NGX_MAXHOSTNAMELEN];
 
     /**
-     * \file ../../os/unix/ngx_time.h|c
-     * 更新时区(强制使用本地时区)
+     * \file ../os/unix/ngx_time.h|c
+     * TODO 测试时区？
      */
     ngx_timezone_update();
 
@@ -78,17 +77,15 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     log = old_cycle->log;
 
-    /**
-     *  \file ngx_palloc.c
-     *  分配一块16k的内存池，第一个节点大约是16k，如果再新增（小块）内存节点，那么该节点最大为4k
-     */
+    //分配一块16k的内存池。如果再新增内存池节点，那么该节点最大为4k
     pool = ngx_create_pool(NGX_CYCLE_POOL_SIZE, log);
     if (pool == NULL) {
         return NULL;
     }
     pool->log = log;
 
-    cycle = ngx_pcalloc(pool, sizeof(ngx_cycle_t));
+    //在内存池上建立新cycle对象
+    cycle = ngx_pcalloc(pool, sizeof(ngx_cycle_t));     //sizeof(ngx_cycle_t) = 224
     if (cycle == NULL) {
         ngx_destroy_pool(pool);
         return NULL;
@@ -114,7 +111,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-    //配置文件名
+    //配置文件名 结尾添加\0
     cycle->conf_file.len = old_cycle->conf_file.len;
     cycle->conf_file.data = ngx_pnalloc(pool, old_cycle->conf_file.len + 1);
     if (cycle->conf_file.data == NULL) {
@@ -131,13 +128,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         ngx_destroy_pool(pool);
         return NULL;
     }
-
-    /**
-     * #############start#########
-     * 为新cycle一些字段分配内存，内存大小基于旧cycle相同字段大小
-     */
     
-    //分配当前cycle中paths数组内存的大小
+    //分配当前cycle中paths数组内存的大小（保存着ngx所有要操作的目录）
     n = old_cycle->paths.nelts ? old_cycle->paths.nelts : 10;
 
     /**
@@ -163,7 +155,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-    //分配当前cycle中open_files链表内存的大小
+    //分配当前cycle中open_files链表内存的大小(保存ngx已经打开的所有文件)
     if (old_cycle->open_files.part.nelts) {
         n = old_cycle->open_files.part.nelts;
         for (part = old_cycle->open_files.part.next; part; part = part->next) {
@@ -213,9 +205,6 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     cycle->listening.size = sizeof(ngx_listening_t);
     cycle->listening.nalloc = n;
     cycle->listening.pool = pool;
-    /**
-     * #############end#########
-     */
 
     /**
      *  \file ngx_queue.h
@@ -223,7 +212,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
      */
     ngx_queue_init(&cycle->reusable_connections_queue);
 
-    //从pool中为conf_ctx分配空间
+    //从pool中为conf_ctx分配空间（每个模块一个配置上下文）
     cycle->conf_ctx = ngx_pcalloc(pool, ngx_max_module * sizeof(void *));
     if (cycle->conf_ctx == NULL) {
         ngx_destroy_pool(pool);
@@ -251,7 +240,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_strlow(cycle->hostname.data, (u_char *) hostname, cycle->hostname.len);
 
     /**
-     *  调用各模块的create_conf函数指针, 配置存于cycle的conf_ctx数组中， 键值为编译后的核心模块的index编号
+     *  调用各模块的create_conf函数指针, 配置存于cycle的conf_ctx数组中，键值为编译后的核心模块的index编号
      *  以下注释为ngx默认编译后加载的模块
      */
     for (i = 0; ngx_modules[i]; i++) {

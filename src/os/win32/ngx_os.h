@@ -23,6 +23,9 @@ typedef ssize_t (*ngx_send_pt)(ngx_connection_t *c, u_char *buf, size_t size);
 typedef ngx_chain_t *(*ngx_send_chain_pt)(ngx_connection_t *c, ngx_chain_t *in,
     off_t limit);
 
+/**
+ * 操作系统I/O相关方法集
+ */
 typedef struct {
     ngx_recv_pt        recv;
     ngx_recv_chain_pt  recv_chain;
@@ -53,11 +56,11 @@ ngx_chain_t *ngx_overlapped_wsasend_chain(ngx_connection_t *c, ngx_chain_t *in,
 void ngx_cdecl ngx_event_log(ngx_err_t err, const char *fmt, ...);
 
 
-extern ngx_os_io_t  ngx_os_io;
-extern ngx_uint_t   ngx_ncpu;
+extern ngx_os_io_t  ngx_os_io;  //系统相关I/O方法集
+extern ngx_uint_t   ngx_ncpu;   //cpu个数
 extern ngx_uint_t   ngx_max_wsabufs;
 extern ngx_int_t    ngx_max_sockets;
-extern ngx_uint_t   ngx_inherited_nonblocking;
+extern ngx_uint_t   ngx_inherited_nonblocking;  //是否可阻塞标志
 extern ngx_uint_t   ngx_tcp_nodelay_and_tcp_nopush;
 extern ngx_uint_t   ngx_win32_version;
 extern char         ngx_unique[];

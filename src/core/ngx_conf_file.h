@@ -92,7 +92,7 @@ struct ngx_command_s {
      */
     ngx_uint_t            type;
     /**
-     * 指令解析执行函数
+     * 指令解析函数
      * 把ngx配置文件该指令的参数转换为合适的数据结构类型，并将转换后的值保存到ngx模块的配置结构体（如ngx_conf_t）中
      */
     char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
@@ -143,12 +143,15 @@ struct ngx_module_s {
     //版本
     ngx_uint_t            version;
 
-    //与模块相关的上下文。不同种类的模块有不同的上下文，因此实现了四种结构体（如ngx_core_module/ngx_events_module/ngx_event_core_module）
+    /**
+     * 与模块相关的上下文。主要用于创建、初始化配置文件。
+     * 不同种类的模块有不同的上下文，因此实现了四种结构体（如ngx_core_module_t/ngx_events_module_t/ngx_event_core_module_t）
+     */
     void                 *ctx;
     //该模块的指令集，指向一个ngx_command_t结构数组，数组元素为每条指令集。
     ngx_command_t        *commands;
     //----该模块的种类，为core|event|http|mail中的一种宏标识
-    //模块的种类，NGX_CONF_MODULE
+    //模块的种类，NGX_CORE_MODULE|NGX_CONF_MODULE
     ngx_uint_t            type;
 
     //初始化master时执行
@@ -180,7 +183,7 @@ struct ngx_module_s {
 };
 
 /**
- * core模块
+ * 全局上下文结构
  */
 typedef struct {
     //模块名
@@ -206,7 +209,7 @@ typedef struct {
 } ngx_conf_file_t;
 
 /**
- * 程序运行时配置值临时变量
+ * 临时存放程序运行时解析的配置值
  */
 typedef struct {
     ngx_str_t             name;

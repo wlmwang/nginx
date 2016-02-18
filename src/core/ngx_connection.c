@@ -127,7 +127,6 @@ ngx_clone_listening(ngx_conf_t *cf, ngx_listening_t *ls)
 }
 
 /**
- *  
  *  @param [in/out] cycle cycle对象
  *  @return int NGX_OK|NGX_ERROR
  *  
@@ -140,6 +139,13 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
     ngx_uint_t                 i;
     ngx_listening_t           *ls;
     socklen_t                  olen;
+/**
+ * tips:
+ * TCP_DEFER_ACCEPT （Linux 2.4以上）将accept()的处理时机推迟到三次握手成功完成后的连接上有可读数据后，然后才向 listening socket 的监听者投递读事件。
+ * 这样一来，一旦accept()成功，ngx不用等待新接入连接上有读事件发生，便可以马上从其中读取请 求数据。这样，就提高了请求的处理效率。
+ *
+ * 原理：要求三次握手过程的最后一握为实际数据，这时此连接才真正进行 ESTABLISHED 状态
+ */
 #if (NGX_HAVE_DEFERRED_ACCEPT || NGX_HAVE_TCP_FASTOPEN)
     ngx_err_t                  err;
 #endif
@@ -188,7 +194,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
              break;
 #endif
 
-        case AF_INET: //tcp/ip协议族
+        case AF_INET: //ip4地址族
              ls[i].addr_text_max_len = NGX_INET_ADDRSTRLEN;
              len = NGX_INET_ADDRSTRLEN + sizeof(":65535") - 1;
              break;
@@ -208,7 +214,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         /**
          *  \file ngx_inet.h|c
-         *  设置socket地址字符串形式
+         *  设置socket地址字符串形式 //127.0.0.1:80
          */
         len = ngx_sock_ntop(ls[i].sockaddr, ls[i].socklen,
                             ls[i].addr_text.data, len, 1);
@@ -330,7 +336,8 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
         /**
          * 当支持accept filter时，通过SO_ACCEPTFILTER选项取得socket的accept_filter表 
          * 保存在对应项的accept_filter中； 
-         *
+         * 
+         * tips:
          * SO_ACCEPTFILTER 是socket上的输入过滤，他在接手前，将过滤掉传入流套接字的链接，
          * 功能是服务器不等待最后的ACK包而仅仅等待携带数据负载的包
          */
@@ -368,11 +375,11 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
         olen = sizeof(int);
 
         /** 
-         * 如果当前操作系统TCP层支持TCP_DEFER_ACCEPT， 
-         * 则试图获取TCP_DEFER_ACCEPT的timeout值。Timeout大于0时，则将socket对应deferred_accept标志设为1
-         * 支持deffered accept的操作系统，nginx会设置这个参数来增强功能，设置了这个参数，在accept的时候，
+         * 如操作系统TCP层支持TCP_DEFER_ACCEPT，则试图获取TCP_DEFER_ACCEPT的timeout值，timeout大于0时，则将socket对应deferred_accept标志设为1
+         *
+         * tips:
+         * 支持deffered accept的操作系统，ngx会设置这个参数来增强功能，设置了这个参数，在accept的时候，
          * 只有当实际收到了数据，才唤醒在accept等待的进程，可以减少一些无聊的上下文切换
-         * 可自行查阅资料~
          */
         if (getsockopt(ls[i].fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &timeout, &olen)
             == -1)

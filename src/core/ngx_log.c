@@ -30,7 +30,9 @@ typedef struct {
 
 #endif
 
-
+/**
+ * 日志命令集
+ */
 static ngx_command_t  ngx_errlog_commands[] = {
 
     {ngx_string("error_log"),
@@ -43,7 +45,9 @@ static ngx_command_t  ngx_errlog_commands[] = {
     ngx_null_command
 };
 
-
+/**
+ * 日志上下文
+ */
 static ngx_core_module_t  ngx_errlog_module_ctx = {
     ngx_string("errlog"),
     NULL,
@@ -67,9 +71,9 @@ ngx_module_t  ngx_errlog_module = {
 };
 
 
-static ngx_log_t        ngx_log;
-static ngx_open_file_t  ngx_log_file;
-ngx_uint_t              ngx_use_stderr = 1;
+static ngx_log_t        ngx_log;        //日志对象
+static ngx_open_file_t  ngx_log_file;   //日志文件
+ngx_uint_t              ngx_use_stderr = 1; //初始使用标准错误
 
 
 static ngx_str_t err_levels[] = {
@@ -89,9 +93,11 @@ static const char *debug_levels[] = {
     "debug_http", "debug_mail", "debug_mysql", "debug_stream"
 };
 
-
 #if (NGX_HAVE_VARIADIC_MACROS)
 
+/**
+ * 日志实际写入函数
+ */
 void
 ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
     const char *fmt, ...)
@@ -183,7 +189,7 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
         n = ngx_write_fd(log->file->fd, errstr, p - errstr);
 
         if (n == -1 && ngx_errno == NGX_ENOSPC) {
-            log->disk_full_time = ngx_time();
+            log->disk_full_time = ngx_time();   //磁盘已满
         }
 
         if (log->file->fd == ngx_stderr) {
@@ -192,7 +198,7 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
 
     next:
 
-        log = log->next;
+        log = log->next;    //链表下一个节点
     }
 
     if (!ngx_use_stderr
@@ -314,7 +320,7 @@ ngx_log_errno(u_char *buf, u_char *last, ngx_err_t err)
 }
 
 /**
- * @param [in] prefix ngx服务目录 默认/usr/local/nginx
+ * @param [in] prefix ngx项目目录
  * @return * 日志指针
  * 初始化日志对象，其主要工作为计算错误日志文件绝对路径并打开日志
  */
@@ -327,7 +333,7 @@ ngx_log_init(u_char *prefix)
     ngx_log.file = &ngx_log_file;
     ngx_log.log_level = NGX_LOG_NOTICE;
 
-    name = (u_char *) NGX_ERROR_LOG_PATH;
+    name = (u_char *) NGX_ERROR_LOG_PATH;   //#define NGX_ERROR_LOG_PATH  "logs/error.log"
 
     /*
      * we use ngx_strlen() here since BCC warns about
@@ -346,7 +352,7 @@ ngx_log_init(u_char *prefix)
 #if (NGX_WIN32)
     if (name[1] != ':') {
 #else
-    if (name[0] != '/') {
+    if (name[0] != '/') {   //相对路径
 #endif
 
         if (prefix) {
@@ -354,7 +360,7 @@ ngx_log_init(u_char *prefix)
 
         } else {
 #ifdef NGX_PREFIX
-            prefix = (u_char *) NGX_PREFIX;
+            prefix = (u_char *) NGX_PREFIX;     //#define NGX_PREFIX  "/usr/local/nginx/"
             plen = ngx_strlen(prefix);
 #else
             plen = 0;
@@ -362,7 +368,7 @@ ngx_log_init(u_char *prefix)
         }
 
         if (plen) {
-            name = malloc(plen + nlen + 2);
+            name = malloc(plen + nlen + 2);     //多两个2个字符分别为'/' （可能NGX_PREFIX为/usr/local/nginx），'\0' 
             if (name == NULL) {
                 return NULL;
             }
@@ -373,7 +379,7 @@ ngx_log_init(u_char *prefix)
                 *p++ = '/';
             }
 
-            ngx_cpystrn(p, (u_char *) NGX_ERROR_LOG_PATH, nlen + 1);
+            ngx_cpystrn(p, (u_char *) NGX_ERROR_LOG_PATH, nlen + 1);    //TODO !!!
 
             p = name;
         }

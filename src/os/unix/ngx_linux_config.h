@@ -63,12 +63,12 @@
 
 
 #if (NGX_HAVE_POSIX_SEM)
-#include <semaphore.h>		//信号量
+#include <semaphore.h>		//信号量库
 #endif
 
 
 #if (NGX_HAVE_SYS_PRCTL_H)
-#include <sys/prctl.h>		//线程控制库，线程名等
+#include <sys/prctl.h>		//线程控制库，支持PR_SET_NAME选项，用于设置进程名字，linux的进程一般使用lwp，所以这个函数可以设置线程名字
 #endif
 
 
@@ -109,7 +109,7 @@ typedef struct iocb  ngx_aiocb_t;
 
 
 #ifndef NGX_HAVE_INHERITED_NONBLOCK
-#define NGX_HAVE_INHERITED_NONBLOCK  0		//listen socket fd是否可继承
+#define NGX_HAVE_INHERITED_NONBLOCK  0		//listen socketfd是否可阻塞
 #endif
 
 
