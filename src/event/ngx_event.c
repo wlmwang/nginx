@@ -495,17 +495,17 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     ngx_core_conf_t     *ccf;
     ngx_event_conf_t    *ecf;
 
-    cf = ngx_get_conf(cycle->conf_ctx, ngx_events_module);
-    ecf = (*cf)[ngx_event_core_module.ctx_index];
+    cf = ngx_get_conf(cycle->conf_ctx, ngx_events_module);  //event配置
+    ecf = (*cf)[ngx_event_core_module.ctx_index];   //event配置
 
-    if (!ngx_test_config && ngx_process <= NGX_PROCESS_MASTER) {
+    if (!ngx_test_config && ngx_process <= NGX_PROCESS_MASTER) {  //单进程 && 主进程
         ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                       "using the \"%s\" event method", ecf->name);
     }
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
-    ngx_timer_resolution = ccf->timer_resolution;
+    ngx_timer_resolution = ccf->timer_resolution;   //resolution时间
 
 #if !(NGX_WIN32)
     {
@@ -574,7 +574,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     shm.log = cycle->log;
 
     /**
-     *  \file ../../os/unix/ngx_shmem.h|c
+     *  \file ../os/unix/ngx_shmem.h|c
      *  分配共享内存
      */
     if (ngx_shm_alloc(&shm) != NGX_OK) {
@@ -587,8 +587,8 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     ngx_accept_mutex.spin = (ngx_uint_t) -1;        //初始化自旋锁的初值为-1
 
     /**
-     *  \file ../../src/core/ngx_shmtx.h|c
-     *  初始化互斥体。如果支持原子操作的话，就直接将内存地址分配过去就行。否则使用文件锁
+     *  \file ../../core/ngx_shmtx.h|c
+     *  初始化互斥体。
      */
     if (ngx_shmtx_create(&ngx_accept_mutex, (ngx_shmtx_sh_t *) shared,
                          cycle->lock_file.data)
@@ -600,17 +600,17 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     //保存当前服务器总共持有的connection
     ngx_connection_counter = (ngx_atomic_t *) (shared + 1 * cl);    //使用共享内存
 
-    (void) ngx_atomic_cmp_set(ngx_connection_counter, 0, 1);
+    (void) ngx_atomic_cmp_set(ngx_connection_counter, 0, 1);  //初始化为1
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "counter: %p, %d",
                    ngx_connection_counter, *ngx_connection_counter);
 
-    ngx_temp_number = (ngx_atomic_t *) (shared + 2 * cl);   //???
+    ngx_temp_number = (ngx_atomic_t *) (shared + 2 * cl);
 
     tp = ngx_timeofday();
 
-    ngx_random_number = (tp->msec << 16) + ngx_pid;     //???
+    ngx_random_number = (tp->msec << 16) + ngx_pid;
 
 #if (NGX_STAT_STUB)
 

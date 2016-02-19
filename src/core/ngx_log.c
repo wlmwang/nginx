@@ -409,13 +409,19 @@ ngx_log_init(u_char *prefix)
     return &ngx_log;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return NGX_OK|NGX_ERROR
+ *  
+ *  打开默认日志文件
+ */
 ngx_int_t
 ngx_log_open_default(ngx_cycle_t *cycle)
 {
     ngx_log_t         *log;
-    static ngx_str_t   error_log = ngx_string(NGX_ERROR_LOG_PATH);
+    static ngx_str_t   error_log = ngx_string(NGX_ERROR_LOG_PATH);  //"logs/error.log" ./configure --error-log-path=*
 
+    //返回log链表，一个log->file为空的日志对象
     if (ngx_log_get_file_log(&cycle->new_log) != NULL) {
         return NGX_OK;
     }
@@ -435,11 +441,16 @@ ngx_log_open_default(ngx_cycle_t *cycle)
 
     log->log_level = NGX_LOG_ERR;
 
+    /**
+     *  \file ngx_conf_file.h|c
+     *  打开文件
+     */
     log->file = ngx_conf_open_file(cycle, &error_log);
     if (log->file == NULL) {
         return NGX_ERROR;
     }
 
+    //插入日志链表节点
     if (log != &cycle->new_log) {
         ngx_log_insert(&cycle->new_log, log);
     }
@@ -447,7 +458,12 @@ ngx_log_open_default(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return NGX_OK
+ *  
+ *  重定向日志到标准输出
+ */
 ngx_int_t
 ngx_log_redirect_stderr(ngx_cycle_t *cycle)
 {
@@ -472,7 +488,12 @@ ngx_log_redirect_stderr(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] head log链表开始位置
+ *  @return ngx_log_t *
+ *  
+ *  返回log链表，一个log->file为空的日志对象
+ */
 ngx_log_t *
 ngx_log_get_file_log(ngx_log_t *head)
 {

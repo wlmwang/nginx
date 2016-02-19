@@ -47,7 +47,7 @@
 #define NGX_CONF_2MORE       0x00001000
 #define NGX_CONF_MULTI       0x00000000  /* compatibility */
 
-#define NGX_DIRECT_CONF      0x00010000
+#define NGX_DIRECT_CONF      0x00010000     //字符串即配置，无需执行命令处理函数
 
 #define NGX_MAIN_CONF        0x01000000
 #define NGX_ANY_CONF         0x1F000000
@@ -69,7 +69,7 @@
 #define NGX_CONF_FILE_DONE   3
 
 #define NGX_CORE_MODULE      0x45524F43  /* "CORE" */
-#define NGX_CONF_MODULE      0x464E4F43  /* "CONF" */
+#define NGX_CONF_MODULE      0x464E4F43  /* "CONF" */   //需要解析配置
 
 
 #define NGX_MAX_CONF_ERRSTR  1024
@@ -130,7 +130,7 @@ struct ngx_open_file_s {
  * ngx的每一个模块都需实现ngx_module_t结构体
  */
 struct ngx_module_s {
-    //分类模块计数器：在ngx_modules[]数组中，该模块在相同类型的模块中的次序。
+    //分类模块计数器：在ngx_modules[]数组中，该模块在相同类型的模块中的次序。取配置时使用
     ngx_uint_t            ctx_index;
     //模块计数器：按照每个模块在ngx_modules[]数组中的声明顺序，从0开始依次给每个模块赋值
     ngx_uint_t            index;
@@ -202,7 +202,7 @@ typedef struct {
     ngx_file_t            file;
     //配置文件，文件式缓冲|-g字符串内容，内存式缓冲
     ngx_buf_t            *buffer;
-    //-T启动参数。将要打印的配置放入该临时缓冲
+    //-T启动参数。将要打印的配置放入该临时缓冲，与ngx_conf_dump_t中buffer指向相同。内存式缓冲
     ngx_buf_t            *dump;
     //读文件起始行，文件式缓冲时为1
     ngx_uint_t            line;
@@ -210,10 +210,11 @@ typedef struct {
 
 /**
  * 临时存放程序运行时解析的配置值
+ * ngx_cycle_t.config_dump使用
  */
 typedef struct {
-    ngx_str_t             name;
-    ngx_buf_t            *buffer;
+    ngx_str_t             name;     //配置文件名
+    ngx_buf_t            *buffer;   //与ngx_conf_file_t中dump指向相同，内存式缓冲
 } ngx_conf_dump_t;
 
 

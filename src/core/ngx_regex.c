@@ -282,7 +282,9 @@ ngx_pcre_free_studies(void *data)
 
 #endif
 
-
+/**
+ * 初始化regex
+ */
 static ngx_int_t
 ngx_regex_module_init(ngx_cycle_t *cycle)
 {

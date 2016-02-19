@@ -54,7 +54,7 @@ ngx_os_init(ngx_log_t *log)
 
     /**
      *  \file ngx_setproctitle.h|c
-     *  移动**environ到堆上
+     *  移动**environ到堆上，为设置进程标题做准备
      */
     if (ngx_init_setproctitle(log) != NGX_OK) {
         return NGX_ERROR;
@@ -126,6 +126,10 @@ ngx_os_status(ngx_log_t *log)
 #endif
 
 #if (NGX_HAVE_OS_SPECIFIC_INIT)
+    /**
+     * \file ngx_linux_init.c
+     * 记录操作系统类型、版本
+     */
     ngx_os_specific_status(log);
 #endif
 

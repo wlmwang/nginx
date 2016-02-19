@@ -49,12 +49,10 @@ struct ngx_cycle_s {
      * 保存ngx中解析出的所有配置信息
      * 是一个指针数组（核心模块配置ngx_core_module|ngx_http_module等），其中每一个元素又指向一个指针数组（每个模块有核心结构体，管理其下所模块）
      * conf_ctx[]
-     *      --ngx_core_conf_t[]
-     *                  ---main_conf*
-     *                              ---create_main_conf
-     *                  ---srv_conf*
-     *                  ---loc_conf*
-     *      --ngx_regex_conf_t[]
+     *      --ngx_core_conf_t*
+     *      --ngx_regex_conf_t*
+     *      --ngx_events_module[]       #同类模块“折叠”
+     *              --ngx_event_conf_t*
      */
     void                  ****conf_ctx;
     //内存池
@@ -66,7 +64,7 @@ struct ngx_cycle_s {
      * 在ngx_init_cycle方法执行后，将会根据nginx.conf配置文件中的配置项，构造出正确的日志文件，此时会对log重新赋值
      */
     ngx_log_t                *log;
-    //调用ngx_init_cycle方法后，会用new_log的地址覆盖上面的log指针
+    //创建新日志节点链表使用。调用ngx_init_cycle方法后，会用new_log的地址覆盖上面的log指针
     ngx_log_t                 new_log;
 
     ngx_uint_t                log_use_stderr;  /* unsigned  log_use_stderr:1; */

@@ -36,7 +36,7 @@ static char *ngx_os_argv_last;
  *  @return ngx_int_t
  *  
  *  移动**environ到堆上，为进程标题做准备。计算**environ指针结尾地址。
- *  tips：argv和environ地址是相邻的。argv在低，environ在高地址
+ *  tips：*argv[]与**environ两个变量所占的内存是连续的，并且是**environ紧跟在*argv[]后面
  */
 ngx_int_t
 ngx_init_setproctitle(ngx_log_t *log)
@@ -77,7 +77,7 @@ ngx_init_setproctitle(ngx_log_t *log)
         }
     }
 
-    ngx_os_argv_last--;
+    ngx_os_argv_last--;     //是原始argv和environ的总体大小
 
     return NGX_OK;
 }
@@ -85,7 +85,11 @@ ngx_init_setproctitle(ngx_log_t *log)
 /**
  * @param [in] title 进程标题
  * 
- * 设置进程标题
+ * 设置进程标题。environ已被赋值一份到内存池中。无需担心被覆盖。
+ *
+ * tips:
+ * Linux中进程的名称存储在argv[0]中。
+ * *argv[]与**environ两个变量所占的内存是连续的，并且是**environ紧跟在*argv[]后面
  */
 void
 ngx_setproctitle(char *title)
@@ -101,6 +105,7 @@ ngx_setproctitle(char *title)
 
     ngx_os_argv[1] = NULL;
 
+    //ngx_os_argv_last是原始argv和environ的总体大小
     p = ngx_cpystrn((u_char *) ngx_os_argv[0], (u_char *) "nginx: ",
                     ngx_os_argv_last - ngx_os_argv[0]);
 
@@ -136,6 +141,7 @@ ngx_setproctitle(char *title)
 
 #endif
 
+    //在原始argv和environ的连续内存中，将修改了的进程名字之外的内存全部清零
     if (ngx_os_argv_last - (char *) p) {
         ngx_memset(p, NGX_SETPROCTITLE_PAD, ngx_os_argv_last - (char *) p);
     }

@@ -559,7 +559,13 @@ ngx_add_path(ngx_conf_t *cf, ngx_path_t **slot)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @param [in] user 用户名
+ *  @return NGX_OK
+ *  
+ *  创建ngx要使用的所有目录
+ */
 ngx_int_t
 ngx_create_paths(ngx_cycle_t *cycle, ngx_uid_t user)
 {
@@ -570,6 +576,7 @@ ngx_create_paths(ngx_cycle_t *cycle, ngx_uid_t user)
     path = cycle->paths.elts;
     for (i = 0; i < cycle->paths.nelts; i++) {
 
+        //创建目录  #define ngx_create_dir(name, access) mkdir((const char *) name, access)
         if (ngx_create_dir(path[i]->name.data, 0700) == NGX_FILE_ERROR) {
             err = ngx_errno;
             if (err != NGX_EEXIST) {
@@ -596,6 +603,7 @@ ngx_create_paths(ngx_cycle_t *cycle, ngx_uid_t user)
             return NGX_ERROR;
         }
 
+        //更改目录所有者
         if (fi.st_uid != user) {
             if (chown((const char *) path[i]->name.data, user, -1) == -1) {
                 ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_errno,
@@ -605,6 +613,7 @@ ngx_create_paths(ngx_cycle_t *cycle, ngx_uid_t user)
             }
         }
 
+        //更改目录权限，权限至少要让所有者rwx
         if ((fi.st_mode & (S_IRUSR|S_IWUSR|S_IXUSR))
                                                   != (S_IRUSR|S_IWUSR|S_IXUSR))
         {

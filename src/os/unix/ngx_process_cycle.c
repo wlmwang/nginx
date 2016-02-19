@@ -99,10 +99,10 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     sigaddset(&set, SIGCHLD);
     sigaddset(&set, SIGALRM);
     /**
-     * 异步IO通知机制。在TCP连接中，该信号产生在通信的各个阶段，如建立/断开连接，发送/接受通道被关闭，接受/发送数据，IO发生了错误等
+     * 异步I/O通知机制。在TCP连接中，该信号产生在通信的各个阶段，如建立/断开连接，发送/接受通道被关闭，接受/发送数据，I/O发生了错误等
      * 
      * 在ngx中主要用于reload特殊的流程；同时，工作进程意外退出也会出现类似 reload 的情况。
-     * ngx启用了多少个工作进程，在 reload 时，就会收到多少次 SIGIO 信号
+     * ngx启用了多少个工作进程，在reload时，就会收到多少次 SIGIO 信号
      */
     sigaddset(&set, SIGIO);
     sigaddset(&set, SIGINT);    //Ctrl-C
@@ -120,7 +120,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
     sigemptyset(&set);
 
-    //进程标题title="master process" + ngx_argv[0] + ... + ngx_argv[ngx_argc-1]
+    //进程标题title="master process " + ngx_argv[0] + ... + ngx_argv[ngx_argc-1]
     size = sizeof(master_process);
 
     for (i = 0; i < ngx_argc; i++) {
@@ -140,20 +140,20 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     }
 
     /**
-     *  \file ../../os/unix/ngx_setproctitle.h|c
+     *  \file ../os/unix/ngx_setproctitle.h|c
      *  设置进程标题
      */
     ngx_setproctitle(title);
 
 
-    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);   //全局配置
 
     /**
-     *  \file ../../os/unix/ngx_process_cycle.c
+     *  \file ../os/unix/ngx_process_cycle.h|c
      *  启动创建多个worker进程
      */
     ngx_start_worker_processes(cycle, ccf->worker_processes,
-                               NGX_PROCESS_RESPAWN);    //#define NGX_PROCESS_RESPAWN -3 //重新创建
+                               NGX_PROCESS_RESPAWN);
     /**
      * 启动文件cache管理进程，缓冲管理进程
      * 有些模块需要文件cache，比如fastcgi模块，这些模块会把文件cache路径添加到cycle->paths中
@@ -400,7 +400,7 @@ ngx_single_process_cycle(ngx_cycle_t *cycle)
 /**
  *  @param [in] cycle cycle对象
  *  @param [in] n worker个数
- *  @param [in] type  启动worker模式，例如是否重新产生，是否新产生
+ *  @param [in] type worker进程属性（worker退出后是否要重启）
  *  @return void
  *  
  *  启动n个worker进程

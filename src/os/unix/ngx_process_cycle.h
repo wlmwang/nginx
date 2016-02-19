@@ -20,11 +20,11 @@
 #define NGX_CMD_REOPEN         5
 
 
-#define NGX_PROCESS_SINGLE     0
-#define NGX_PROCESS_MASTER     1
-#define NGX_PROCESS_SIGNALLER  2
-#define NGX_PROCESS_WORKER     3
-#define NGX_PROCESS_HELPER     4
+#define NGX_PROCESS_SINGLE     0 	//单独进程
+#define NGX_PROCESS_MASTER     1 	//主进程
+#define NGX_PROCESS_SIGNALLER  2 	//信号进程
+#define NGX_PROCESS_WORKER     3 	//工作进程
+#define NGX_PROCESS_HELPER     4 	//辅助进程
 
 
 typedef struct {

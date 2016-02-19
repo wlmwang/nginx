@@ -18,13 +18,21 @@ static ssize_t ngx_writev_file(ngx_file_t *file, ngx_array_t *vec, size_t size,
     off_t offset);
 
 
-#if (NGX_HAVE_FILE_AIO)
+#if (NGX_HAVE_FILE_AIO)     //异步I/O
 
 ngx_uint_t  ngx_file_aio = 1;
 
 #endif
 
-
+/**
+ *  @param [in] file 文件信息
+ *  @param [out] buf 读取内容存放buf
+ *  @param [in] size 读取文件字节
+ *  @param [in] offset 读取文件偏移量
+ *  @return ssize_t 实际读取字节大小
+ *  
+ *  读取文件内容
+ */
 ssize_t
 ngx_read_file(ngx_file_t *file, u_char *buf, size_t size, off_t offset)
 {
@@ -35,7 +43,7 @@ ngx_read_file(ngx_file_t *file, u_char *buf, size_t size, off_t offset)
 
 #if (NGX_HAVE_PREAD)
 
-    n = pread(file->fd, buf, size, offset);
+    n = pread(file->fd, buf, size, offset);     //定位、读取原子操作
 
     if (n == -1) {
         ngx_log_error(NGX_LOG_CRIT, file->log, ngx_errno,

@@ -8,12 +8,19 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+/**
+ *  @param [in/out] pool 内存池
+ *  @param [in] size buf大小
+ *  @return ngx_buf_t *
+ *  
+ *  创建临时（temporary=1可变）buf
+ */
 ngx_buf_t *
 ngx_create_temp_buf(ngx_pool_t *pool, size_t size)
 {
     ngx_buf_t *b;
 
+    //创建buf_t节点     #define ngx_calloc_buf(pool) ngx_pcalloc(pool, sizeof(ngx_buf_t))
     b = ngx_calloc_buf(pool);
     if (b == NULL) {
         return NULL;

@@ -13,7 +13,7 @@
 #include <ngx_core.h>
 
 /**
- * 互斥锁地址结构，用于创建ngx_shmtx_t
+ * 用于创建ngx_shmtx_t结构模板
  */
 typedef struct {
     ngx_atomic_t   lock;

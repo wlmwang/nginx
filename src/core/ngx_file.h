@@ -21,9 +21,9 @@ struct ngx_file_s {
     //文件大小等资源信息，实际就是Linux系统定义的stat结构(typedef struct stat ngx_file_info_t)
     ngx_file_info_t            info;
 
-    //该偏移量告诉ngx现在处理到文件何处了，一般不用设置它，ngx框架会根据当前发送状态设置它
+    //该偏移量告诉ngx现在处理到文件何处了
     off_t                      offset;
-    //当前文件系统偏移量，一般不用设置它，同样由ngx框架设置
+    //当前文件系统偏移量，不支持原子pread操作时使用。在支持pread系统上，相对offset，该字段为冗余字段
     off_t                      sys_offset;
 
     //日志对象，相关的日志会输出到log指定的日志文件中

@@ -432,6 +432,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
 
     /* TODO: configurable try number */
 
+    //500ms尝试一次打开。试满5次
     for (tries = 5; tries; tries--) {
         failed = 0;
 
@@ -469,7 +470,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
             }
 #endif
 
-            if (ls[i].fd != (ngx_socket_t) -1) {
+            if (ls[i].fd != (ngx_socket_t) -1) {  //已打开
                 continue;
             }
 
@@ -483,7 +484,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
             }
 
             /**
-             *  \file ../../os/unix/ngx_socket.c
+             *  \file ../os/unix/ngx_socket.h|c
              *  #define ngx_socket socket
              */
             s = ngx_socket(ls[i].sockaddr->sa_family, ls[i].type, 0);
@@ -494,6 +495,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 return NGX_ERROR;
             }
 
+            //复用地址，多进程必须
             if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
                            (const void *) &reuseaddr, sizeof(int))
                 == -1)
@@ -558,9 +560,9 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
 
             if (!(ngx_event_flags & NGX_USE_IOCP_EVENT)) {
                 /**
-                 *  \file ../../os/unix/ngx_socket.c
+                 *  \file ../os/unix/ngx_socket.h|c
+                 *  非阻塞I/O
                  *  #define ngx_nonblocking(s) fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK)
-                 *  非阻塞io
                  */
                 if (ngx_nonblocking(s) == -1) {
                     ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
@@ -615,7 +617,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 name = ls[i].addr_text.data + sizeof("unix:") - 1;
                 mode = (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
 
-                if (chmod((char *) name, mode) == -1) {
+                if (chmod((char *) name, mode) == -1) {   //权限设置
                     ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_errno,
                                   "chmod() \"%s\" failed", name);
                 }
@@ -692,7 +694,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
  *  @param [in] cycle cycle对象
  *  @return void
  *  
- *  配置所有listening socket
+ *  根据ngx_listening_t数据结构配置Listen Sockets
  */
 void
 ngx_configure_listening_sockets(ngx_cycle_t *cycle)
@@ -755,7 +757,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
             value *= NGX_KEEPALIVE_FACTOR;
 #endif
 
-            //如该fd连接在value秒内没有任何数据往来,则进行探测
+            //如该fd连接在value秒内没有任何数据往来，则进行探测
             if (setsockopt(ls[i].fd, IPPROTO_TCP, TCP_KEEPIDLE,
                            (const void *) &value, sizeof(int))
                 == -1)
@@ -843,6 +845,7 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 
             /* change backlog via listen() */
 
+            //变更backlog
             if (listen(ls[i].fd, ls[i].backlog) == -1) {
                 ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,
                               "listen() to %V, backlog %d failed, ignored",
