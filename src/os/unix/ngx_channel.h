@@ -29,7 +29,7 @@ typedef struct {
      ngx_uint_t  command;
      ngx_pid_t   pid;	//发送方进程id
      ngx_int_t   slot;	//发送方进程表中偏移(下标)
-     ngx_fd_t    fd;	//发送给对方的句柄
+     ngx_fd_t    fd;	//发送方ch[0]描述符
 } ngx_channel_t;
 
 

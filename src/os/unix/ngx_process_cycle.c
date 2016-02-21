@@ -193,7 +193,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "sigsuspend");
 
-        //阻塞等待信号量
+        //阻塞方式等待信号量。会被上面设置的定时器打断
         sigsuspend(&set);
 
         //更新时间
@@ -436,7 +436,7 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
         ch.slot = ngx_process_slot;
         ch.fd = ngx_processes[ngx_process_slot].channel[0];
 
-        ngx_pass_open_channel(cycle, &ch);	//发送此ch到所有一创建的worker进程。
+        ngx_pass_open_channel(cycle, &ch);	//发送此ch[0]到所有一创建的worker进程。
     }
 }
 
@@ -497,7 +497,10 @@ ngx_start_cache_manager_processes(ngx_cycle_t *cycle, ngx_uint_t respawn)
 }
 
 /**
- *  fasong
+ *  @param [in] cycle cycle对象
+ *  @param [in] ch channel对象
+ *  @return void
+ *  发送channel给所有worker
  */
 static void
 ngx_pass_open_channel(ngx_cycle_t *cycle, ngx_channel_t *ch)
