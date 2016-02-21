@@ -66,7 +66,11 @@ ngx_shmtx_destroy(ngx_shmtx_t *mtx)
 #endif
 }
 
-
+/**
+ *  @param [in] mtx 锁对象
+ *  @return 0|1
+ *  非阻塞尝试获取mtx锁
+ */
 ngx_uint_t
 ngx_shmtx_trylock(ngx_shmtx_t *mtx)
 {

@@ -10,8 +10,8 @@
 #include <ngx_event.h>
 
 
-ngx_rbtree_t              ngx_event_timer_rbtree;
-static ngx_rbtree_node_t  ngx_event_timer_sentinel;
+ngx_rbtree_t              ngx_event_timer_rbtree;	//超时管理的红黑树结构
+static ngx_rbtree_node_t  ngx_event_timer_sentinel;	//红黑树中的哨兵节点
 
 /*
  * the event timer rbtree may contain the duplicate keys, however,
@@ -22,6 +22,10 @@ static ngx_rbtree_node_t  ngx_event_timer_sentinel;
 ngx_int_t
 ngx_event_timer_init(ngx_log_t *log)
 {
+	/**
+	 *  \file ../../core/ngx_rbtree.h
+	 *  初始化红黑树
+	 */
     ngx_rbtree_init(&ngx_event_timer_rbtree, &ngx_event_timer_sentinel,
                     ngx_rbtree_insert_timer_value);
 

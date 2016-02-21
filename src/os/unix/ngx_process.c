@@ -91,7 +91,7 @@ ngx_signal_t  signals[] = {
  *  @param [in] proc ngx_worker_process_cycle，子进程入口函数。
  *  @param [in] data 子进程worker是主进程master启动的第几个进程，0起始
  *  @param [in] name 子进程worker名称
- *  @param [in] respawn  进程启动模式|指定重启具体进程表索引中进程
+ *  @param [in] respawn  worker进程属性（worker退出后是否要重启）、指定重启进程表索引中哪个进程
  *  @return int 子进程pid_t
  *  
  *  生成(fork)工作[worker]子进程
@@ -114,7 +114,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
                 break;
             }
         }
-
+		
+		//超过限制
         if (s == NGX_MAX_PROCESSES) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
                           "no more than %d processes can be spawned",
@@ -123,7 +124,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         }
     }
 
-    //如果类型为NGX_PROCESS_DETACHED，则说明是热代码替换，因此不需要新建socketpair
+    //如果类型为NGX_PROCESS_DETACHED，则说明是热代码替换，需关闭channel
     if (respawn != NGX_PROCESS_DETACHED) {
 
         /* Solaris 9 still has no AF_LOCAL */
@@ -140,7 +141,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
                        "channel %d:%d",
                        ngx_processes[s].channel[0],
                        ngx_processes[s].channel[1]);
-
+		
+		//非阻塞
         if (ngx_nonblocking(ngx_processes[s].channel[0]) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           ngx_nonblocking_n " failed while spawning \"%s\"",
@@ -159,7 +161,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
         /**
          * 设置第一个描述符的异步IO通知机制（FIOASYNC现已被O_ASYNC标志位取代）
-         * SIGIO用于在不想或不能使用 polling (select, epoll 等方式) 机制的情况下，异步获取 IO 事件。
+         * SIGIO用于在不想或不能使用 polling (select, epoll 等方式) 机制的情况下，异步获取 I/O 事件。
          */
         on = 1;
         if (ioctl(ngx_processes[s].channel[0], FIOASYNC, &on) == -1) {
@@ -171,9 +173,10 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
         /**
          * 设置将要在文件描述符channel[0]上接收SIGIO 或 SIGURG事件信号的进程或进程组的标识
-         * 当该描述符状态发生改变时,会向ngx_pid发送SIGIO信号。ngx_pid是master进程的进程ID
+         * 当该描述符状态发生改变时,会向ngx_pid发送SIGIO信号。
+		 * ngx_pid是master进程的进程ID
          */
-        if (fcntl(ngx_processes[s].channel[0], F_SETOWN, ngx_pid) == -1) {  //master主进程接受信号
+        if (fcntl(ngx_processes[s].channel[0], F_SETOWN, ngx_pid) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "fcntl(F_SETOWN) failed while spawning \"%s\"", name);
             ngx_close_channel(ngx_processes[s].channel, cycle->log);
@@ -182,7 +185,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
         /**
          * 设置两个描述符的CLOEXEC标识，
-         * 在使用execl执行的进程里，此描述符被关闭，不能再使用它。在使用fork调用的子进程中，此描述符并不关闭，仍可使用。
+         * 在使用execl执行的进程里，此描述符被关闭，不能再使用它。
+		 * 在使用fork调用的子进程中，此描述符并不关闭，仍可使用。
          */
         if (fcntl(ngx_processes[s].channel[0], F_SETFD, FD_CLOEXEC) == -1) {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
@@ -208,7 +212,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         ngx_processes[s].channel[1] = -1;
     }
 
-    ngx_process_slot = s;
+    ngx_process_slot = s;	//当前已创建到第几个worker进程
 
 
     pid = fork();
@@ -222,19 +226,18 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         return NGX_INVALID_PID;
 
     case 0:
-        ngx_pid = ngx_getpid();
+        ngx_pid = ngx_getpid();	//更新当前pid为worker进程pid
         /**
-         *  \file ../../os/unix/ngx_process_cycle.c
-         *  子进程入口函数：ngx_worker_process_cycle
-         *  该函数应设计成死循环！
+         *  \file ngx_process_cycle.h|c
+         *  子进程入口函数，该函数应设计成死循环
          */
-        proc(cycle, data);
+        proc(cycle, data);	//ngx_worker_process_cycle
         break;
 
     default:
         break;
     }
-
+	
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "start %s %P", name, pid);
 
     //父进程逻辑 主要是记录子进程信息到进程表中
@@ -282,7 +285,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         ngx_processes[s].detached = 1;
         break;
     }
-
+	
+	//TODO 扩充进程表大小？？？
     if (s == ngx_last_process) {
         ngx_last_process++;
     }

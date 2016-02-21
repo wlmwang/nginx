@@ -15,7 +15,9 @@ static ngx_int_t ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all);
 static void ngx_close_accepted_connection(ngx_connection_t *c);
 
 /**
- * 接受新连接
+ *  @param [in] ev 可读、可写事件
+ *  @return void
+ *  接受客户端连接
  */
 void
 ngx_event_accept(ngx_event_t *ev)
@@ -194,6 +196,7 @@ ngx_event_accept(ngx_event_t *ev)
          * 其他模式（epoll、select等）使用非阻塞。
          */
         if (ngx_inherited_nonblocking) {
+			//设置成非阻塞
             if (ngx_event_flags & NGX_USE_IOCP_EVENT) {
                 if (ngx_blocking(s) == -1) {
                     ngx_log_error(NGX_LOG_ALERT, ev->log, ngx_socket_errno,
@@ -218,7 +221,7 @@ ngx_event_accept(ngx_event_t *ev)
         *log = ls->log;
 
         /**
-         *  \file ../../../os/unix/ngx_linux_init.c
+         *  \file ../../os/unix/ngx_linux_init.c
          *
          * linux中可查看ngx_linux_io值
          *  指明客户端连接事件触发时，读写I/O的方法。如消息发送与接受
@@ -278,7 +281,7 @@ ngx_event_accept(ngx_event_t *ev)
          */
 
         /**
-         * ngx_connection_counter是nginx的连接计数器，放置在共享内存中。
+         * ngx_connection_counter是ngx的连接计数器，放置在共享内存中。
          * module init回调函数调用（ngx_event_module_init）中初始化，number表示该连接的序号
          */
         c->number = ngx_atomic_fetch_add(ngx_connection_counter, 1);
@@ -404,10 +407,18 @@ ngx_event_accept(ngx_event_t *ev)
     } while (ev->available);
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return NGX_OK|NGX_ERROR
+ *  非阻塞尝试获取accept锁，获取成功则开启本worker进程listen队列
+ */
 ngx_int_t
 ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 {
+	/**
+	 *  \file ../../core/ngx_shmtx.h|c
+	 *  非阻塞尝试获取锁
+	 */
     if (ngx_shmtx_trylock(&ngx_accept_mutex)) {
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
@@ -418,7 +429,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
             return NGX_OK;
         }
 		
-		//到达这里，说明重新获得锁成功，因此需要打开被关闭的listening句柄。
+		//到达这里，说明重新获得锁成功，因此需要打开被关闭的listening句柄
         if (ngx_enable_accept_events(cycle) == NGX_ERROR) {
             ngx_shmtx_unlock(&ngx_accept_mutex);
             return NGX_ERROR;
@@ -436,7 +447,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 	/**
 	 *  如果我们前面已经获得了锁，然后这次获得锁失败，
 	 *  则说明当前的listen句柄已经被其他的进程锁监听，因此此时需要从epoll中移出调已经注册的listen句柄。
-	 *  这样就很好的控制了子进程的负载均衡
+	 *  这样就很好的控制了子进程的惊群
 	 */
     if (ngx_accept_mutex_held) {
         if (ngx_disable_accept_events(cycle, 0) == NGX_ERROR) {
@@ -449,7 +460,11 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return NGX_OK|NGX_ERROR
+ *  打开被关闭的listening句柄
+ */
 static ngx_int_t
 ngx_enable_accept_events(ngx_cycle_t *cycle)
 {
@@ -474,7 +489,11 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return NGX_OK|NGX_ERROR
+ *  关闭被打开的listening句柄
+ */
 static ngx_int_t
 ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all)
 {

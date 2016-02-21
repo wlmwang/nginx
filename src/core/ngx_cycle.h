@@ -69,7 +69,7 @@ struct ngx_cycle_s {
 
     ngx_uint_t                log_use_stderr;  /* unsigned  log_use_stderr:1; */
 
-    //fiels保存所有ngx_connection_t的指针组成的数组，files_n就是指针的总数，而文件句柄的值用来访问files数组成员
+    ////连接文件。fiels保存所有ngx_connection_t的指针组成的数组，files_n就是指针的总数，而文件句柄的值用来访问files数组成员
     ngx_connection_t        **files;
     //空闲连接池，与free_connection_n配合使用。它指向connections第一个空闲连接，ngx会为我们构造起了一个空的connections数组
     ngx_connection_t         *free_connections;
@@ -95,11 +95,11 @@ struct ngx_cycle_s {
     //表示files数组中ngx_connection_t指针的总数
     ngx_uint_t                files_n;
 
-    //连接池。指向当前进程中的所有连接对象，每个连接对象对应一个写事件和一个读事件
+    //连接池。指向当前进程中的所有连接对象，每个连接对象对应一个写事件（read_events）和一个读事件（write_events）
     ngx_connection_t         *connections;
-    //指向当前进程中的所有写事件对象，connection_n同时表示所有读事件的总数
+    //指向当前进程中的所有读事件对象数组，connection_n同时表示所有读事件的总数
     ngx_event_t              *read_events;
-    //指向当前进程中的所有写事件对象，connection_n同时表示所有写事件的总数
+    //指向当前进程中的所有写事件对象数组，connection_n同时表示所有写事件的总数
     ngx_event_t              *write_events;
 
     //旧的ngx_cycle_t对象用于引用上一个ngx_cycle_t对象中的成员，如热继承的Listen SocketFD

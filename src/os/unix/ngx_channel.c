@@ -194,7 +194,15 @@ ngx_read_channel(ngx_socket_t s, ngx_channel_t *ch, size_t size, ngx_log_t *log)
     return n;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @param [in] fd 文件描述符
+ *  @param [in] event 监听事件flag
+ *  @param [in] handler 回调函数
+ *  @return NGX_OK|NGX_ERROR
+ *  
+ *  添加channel描述符到连接池中，并添加到epoll监听队列
+ */
 ngx_int_t
 ngx_add_channel_event(ngx_cycle_t *cycle, ngx_fd_t fd, ngx_int_t event,
     ngx_event_handler_pt handler)
@@ -221,8 +229,13 @@ ngx_add_channel_event(ngx_cycle_t *cycle, ngx_fd_t fd, ngx_int_t event,
 
     ev = (event == NGX_READ_EVENT) ? rev : wev;
 
-    ev->handler = handler;
-
+    ev->handler = handler;	//事件处理函数，有效函数ngx_channel_handler
+	
+	/**
+	 *  \file ../../event/ngx_event.h
+	 *  #define ngx_add_conn  ngx_event_actions.add_conn。epoll有效调用为ngx_epoll_add_connection
+	 *  添加该连接到epoll监听事件队列中。可读、可写、错误等事件
+	 */
     if (ngx_add_conn && (ngx_event_flags & NGX_USE_EPOLL_EVENT) == 0) {
         if (ngx_add_conn(c) == NGX_ERROR) {
             ngx_free_connection(c);

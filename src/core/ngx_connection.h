@@ -52,7 +52,7 @@ struct ngx_listening_s {
      */
     ngx_connection_handler_pt   handler;
 
-    //目前主要用于HTTP或者mail等模块，用于保存当前监听端口对应着的所有主机名。数组结构
+    //主要用于HTTP或者mail等模块，用于保存当前监听端口对应着的所有主机名。数组结构
     void               *servers;  /* array of ngx_http_in_addr_t, for example */
 
     ngx_log_t           log;

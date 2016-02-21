@@ -347,7 +347,7 @@ main(int argc, char *const *argv)
      */
     /**
      *  \file ngx_crc32.c
-     *  \brief 初始化CRC表
+     *  初始化CRC表
      */
     if (ngx_crc32_table_init() != NGX_OK) {
         return 1;
@@ -361,7 +361,7 @@ main(int argc, char *const *argv)
     /**
      *  \file ../../objs/ngx_modules.c
      *  \file ngx_conf_file.h
-     *  \brief 初始化每个模块index属性
+     *  初始化每个模块index属性
      */
     ngx_max_module = 0;
     for (i = 0; ngx_modules[i]; i++) {
@@ -429,7 +429,8 @@ main(int argc, char *const *argv)
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
     /**
-     * 进程类型还未初始化(NGX_PROCESS_SINGLE是初值，非初始化)，设置当前进程为master进程
+     * 启用master-worker模式，进程类型未初始化(NGX_PROCESS_SINGLE是初值，非初始化)，
+	 * 设置当前进程为master进程
      */
     if (ccf->master && ngx_process == NGX_PROCESS_SINGLE) {   //
         ngx_process = NGX_PROCESS_MASTER;
@@ -573,7 +574,7 @@ ngx_show_version_info()
  *  @param [in/out] cycle cycle对象
  *  @return NGX_OK|NGX_ERROR
  *  
- *  通过环境变量NGINX完成Listen Socket的继承
+ *  通过环境变量NGINX完成Listen Socket的继承。不必再次绑定，以防多进程bind同地址、端口出错
  */
 static ngx_int_t
 ngx_add_inherited_sockets(ngx_cycle_t *cycle)
@@ -649,7 +650,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
  *  @param [in] last 
  *  @return char** 返回对应环境值
  *  
- *  为本进程设置环境变量
+ *  为进程设置环境变量，考虑配置文件中env参数
  */
 char **
 ngx_set_environment(ngx_cycle_t *cycle, ngx_uint_t *last)
@@ -659,14 +660,15 @@ ngx_set_environment(ngx_cycle_t *cycle, ngx_uint_t *last)
     ngx_uint_t         i, n;
     ngx_core_conf_t   *ccf;
 
-    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);	//全局配置
 
-    if (last == NULL && ccf->environment) {
+    if (last == NULL && ccf->environment) {		//配置了env参数
         return ccf->environment;
     }
 
     var = ccf->env.elts;
-
+	
+	//时区
     for (i = 0; i < ccf->env.nelts; i++) {
         //TimeZone字符串 Fri, 13 Nov 2015 14:34:23 +0800   *.tz=01;31
         if (ngx_strcmp(var[i].data, "TZ") == 0
@@ -1410,7 +1412,9 @@ ngx_set_user(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 #endif
 }
 
-
+/**
+ *  设置环境变量env参数
+ */
 static char *
 ngx_set_env(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {

@@ -25,7 +25,7 @@ void ngx_event_expire_timers(void);
 void ngx_event_cancel_timers(void);
 
 
-extern ngx_rbtree_t  ngx_event_timer_rbtree;
+extern ngx_rbtree_t  ngx_event_timer_rbtree;	//超时管理的红黑树结构
 
 
 static ngx_inline void

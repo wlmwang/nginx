@@ -75,7 +75,7 @@ struct ngx_event_s {
     unsigned         closed:1;
 
     /* to test on worker exit */
-    unsigned         channel:1;
+    unsigned         channel:1;		//是否是channel，进程间IPC
     unsigned         resolver:1;
 
     unsigned         cancelable:1;
@@ -124,7 +124,7 @@ struct ngx_event_s {
 
     ngx_log_t       *log;
 
-    ngx_rbtree_node_t   timer;
+    ngx_rbtree_node_t   timer;	//定时器节点
 
     /* the posted queue */
     ngx_queue_t      queue;
@@ -458,7 +458,9 @@ extern ngx_os_io_t  ngx_io;
 #define NGX_EVENT_MODULE      0x544E5645  /* "EVNT" */
 #define NGX_EVENT_CONF        0x02000000
 
-
+/**
+ *  event模块配置
+ */
 typedef struct {
     ngx_uint_t    connections;
     ngx_uint_t    use;

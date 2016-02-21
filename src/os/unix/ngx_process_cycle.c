@@ -149,8 +149,7 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);   //全局配置
 
     /**
-     *  \file ../os/unix/ngx_process_cycle.h|c
-     *  启动创建多个worker进程
+     *  启动创建多个worker进程，且worker是退出重启的
      */
     ngx_start_worker_processes(cycle, ccf->worker_processes,
                                NGX_PROCESS_RESPAWN);
@@ -410,7 +409,7 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
 {
     ngx_int_t      i;
     /**
-     *  \file ../../os/unix/ngx_channel.h
+     *  \file ngx_channel.h
      *  进程间通信结构体
      */
     ngx_channel_t  ch;
@@ -419,23 +418,25 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
 
     ngx_memzero(&ch, sizeof(ngx_channel_t));
 
-    ch.command = NGX_CMD_OPEN_CHANNEL;
+    ch.command = NGX_CMD_OPEN_CHANNEL;	//打开channel，新的channel
 
     for (i = 0; i < n; i++) {
         /**
-         *  \file ../../os/unix/ngx_process.c
+         *  \file ngx_process.c
          *  fork工作[worker]子进程。
          */
         ngx_spawn_process(cycle, ngx_worker_process_cycle,
                           (void *) (intptr_t) i, "worker process", type);
 
-        //更新进程表
+        /**
+         *  发送此ch到所有一创建的worker进程。
+         *  主要用于通知该channel数据结构，使每个worker拥有此进程的channel
+         */
         ch.pid = ngx_processes[ngx_process_slot].pid;
         ch.slot = ngx_process_slot;
         ch.fd = ngx_processes[ngx_process_slot].channel[0];
 
-        //发送ch到所有worker进程
-        ngx_pass_open_channel(cycle, &ch);
+        ngx_pass_open_channel(cycle, &ch);	//发送此ch到所有一创建的worker进程。
     }
 }
 
@@ -495,7 +496,9 @@ ngx_start_cache_manager_processes(ngx_cycle_t *cycle, ngx_uint_t respawn)
     ngx_pass_open_channel(cycle, &ch);
 }
 
-
+/**
+ *  fasong
+ */
 static void
 ngx_pass_open_channel(ngx_cycle_t *cycle, ngx_channel_t *ch)
 {
@@ -800,24 +803,31 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
  *  @param [in] data 子进程worker是主进程master启动的第几个进程，0起始
  *  @return void
  *  
- *  子进程worker进程入口函数。整个worker进程的核心就是epoll模块的初始化。将监听套接字描述符以及用于和master通信的描述符加入到epoll
- *  中。通过epoll_wait来侦听所有关注的事件进行异步处理。
+ *  子进程worker进程入口函数。
+ *  整个worker进程的核心就是epoll模块的初始化。
+ *  将监听套接字描述符以及用于和master通信的描述符加入到epoll中。
+ *  通过epoll_wait来侦听所有关注的事件进行异步处理。
  */
 static void
 ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 {
     ngx_int_t worker = (intptr_t) data;
 
-    ngx_process = NGX_PROCESS_WORKER;       //worker进程
+    ngx_process = NGX_PROCESS_WORKER;       //标识是worker进程
     ngx_worker = worker;                    //进程序号
 
-    ngx_worker_process_init(cycle, worker); //worker进程初始化
+	/**
+	 *  worker进程初始化。
+	 *  epoll模块的初始化。
+	 *  将监听套接字描述符以及用于和master通信的描述符加入到epoll中。
+	 */
+    ngx_worker_process_init(cycle, worker);
 
     ngx_setproctitle("worker process");     //进程名称
 
     for ( ;; ) {
 
-		//如果进程退出,关闭所有连接
+		//如果进程退出，关闭所有连接
         if (ngx_exiting) {
             ngx_event_cancel_timers();
 
@@ -834,9 +844,6 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
         /**
          *  \file ../../event/ngx_event.h|c
          *  事件循环核心函数
-         *  
-         *  对于使用epoll模块, 其调用实质上是ngx_epoll_module.actions.ngx_epoll_process_events
-         *  该函数调用epoll_wait来等待各种注册的事件的发生。默认情况是阻塞等待。
          */
         ngx_process_events_and_timers(cycle);
 
@@ -891,8 +898,8 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     ngx_listening_t  *ls;
 
     /**
-     *  \file ../../src/core/nginx.c
-     *  为本进程设置环境值
+     *  \file ../../core/nginx.h|c
+     *  设置环境值
      */ 
     if (ngx_set_environment(cycle, NULL) == NULL) {
         /* fatal */
@@ -902,8 +909,11 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
     if (worker >= 0 && ccf->priority != 0) {
-        //设置进程优先级
-        if (setpriority(PRIO_PROCESS, 0, ccf->priority) == -1) {
+		/**
+		 *  设置当前进程优先级。进程默认优先级为0
+		 *  -20 -> 20 高 -> 低。只有root可提高优先级，即可减少priority值
+		 */
+        if (setpriority(PRIO_PROCESS, 0, ccf->priority) == -1) {	//
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                           "setpriority(%d) failed", ccf->priority);
         }
@@ -964,7 +974,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
     //根据配置文件决定是否进行CPU绑定
     if (worker >= 0) {
         /**
-         *  \file ../../src/core/nginx.c
+         *  \file ../../core/nginx.h|c
          *  获取第worker索引的core配置的cpu_affinity值
          */
         cpu_affinity = ngx_get_cpu_affinity(worker);
@@ -1015,7 +1025,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
      * in the worker processes there are no events at all at this point
      */
     ls = cycle->listening.elts;
-    //清除监听socket上以前的事件？？？
+    //TODO 清除Listen Socket队列？？？
     for (i = 0; i < cycle->listening.nelts; i++) {
         ls[i].previous = NULL;
     }
@@ -1052,7 +1062,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
             continue;
         }
 
-        if (n == ngx_process_slot) {
+        if (n == ngx_process_slot) {	//当前进程表
             continue;
         }
 
@@ -1077,14 +1087,14 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
 #endif
     
     /**
-     * 将用于与master进程通信的的套接字描述符channel[1]加入到事件驱动模型, 即epoll中。关注的该套接字上的读事件.
-     * 这样当master进程通过channel[0]发送消息时, 通过epoll的通知, 异步调用ngx_channel_handler处理方法
+     * \file ngx_channel.h|c
+	 * 将用于与master进程通信的的套接字描述符channel[1]加入到事件驱动模型, 即epoll中。关注的该套接字上的读事件。
+     * 这样当master进程通过channel[0]发送消息时, worker进程会收到epoll的通知, 异步调用ngx_channel_handler处理方法
      *
-     * 给ngx_channel注册一个读事件处理函数。
-     * ngx_channel就是进程自身的channel[1]，用来读取的socket，在ngx_start_worker_processes()函数中，ngx_channel = ngx_processes[s].channel[1];
-     * ngx_channel_handler处理从channel中收到的信号，当事件触发时，调用这个方法  
+     * ngx_channel就是进程自身的channel[1]（在ngx_start_worker_processes()函数中，ngx_channel = ngx_processes[s].channel[1]）
+	 * ngx_channel_handler处理从channel中收到的信号，当事件触发时，调用这个方法。
+	 * 该channel主要用于与master进程通信。master使用channel[0]
      */
-	//当前worker的channel[1]句柄监听可读事件
     if (ngx_add_channel_event(cycle, ngx_channel, NGX_READ_EVENT,
                               ngx_channel_handler)
         == NGX_ERROR)
@@ -1155,7 +1165,9 @@ ngx_worker_process_exit(ngx_cycle_t *cycle)
     exit(0);
 }
 
-
+/**
+ *  channel读事件回调函数
+ */
 static void
 ngx_channel_handler(ngx_event_t *ev)
 {
