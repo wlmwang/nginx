@@ -18,7 +18,9 @@ ngx_uint_t  ngx_tcp_nodelay_and_tcp_nopush;
 
 struct rlimit  rlmt;
 
-
+/**
+ * 系统相关I/O
+ */
 ngx_os_io_t ngx_os_io = {
     ngx_unix_recv,
     ngx_readv_chain,
@@ -60,7 +62,7 @@ ngx_os_init(ngx_log_t *log)
         return NGX_ERROR;
     }
     /**
-     *  \file ngx_alloc.c
+     *  \file ngx_alloc.h|c
      *  os页大小 x86为4096
      */
     ngx_pagesize = getpagesize();   //os页大小 x86为4096
@@ -102,7 +104,7 @@ ngx_os_init(ngx_log_t *log)
 #if (NGX_HAVE_INHERITED_NONBLOCK || NGX_HAVE_ACCEPT4)
     ngx_inherited_nonblocking = 1;
 #else
-    ngx_inherited_nonblocking = 0;  //TODO 我的系统为0
+    ngx_inherited_nonblocking = 0;  //TODO 我的系统为0？
 #endif
 
     srandom(ngx_time());    //设置random函数的种子

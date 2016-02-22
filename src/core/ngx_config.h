@@ -10,10 +10,11 @@
 
 /**
  * \file ../../objs/ngx_auto_headers.h
- * --configure 生成文件
- * 系统环境检测，定义对应符号变量：用于判断是否可包含的库
+ * 系统环境检测，定义对应符号变量。
+ * 用于判断是否能包含某个库。如：
  * NGX_HAVE_SYS_PRCTL_H
  * NGX_LINUX
+ * ...
  */
 #include <ngx_auto_headers.h>
 
@@ -30,8 +31,8 @@
 
 #elif (NGX_LINUX)
 /**
- * \file ../../os/unix/ngx_linux_config.h
- * 包含项目相关头文件
+ * \file ../os/unix/ngx_linux_config.h
+ * 一般Linux下的头文件。用于包含ngx所有标准头文件
  */
 #include <ngx_linux_config.h>
 
@@ -54,7 +55,6 @@
 #endif
 
 /**
- * TCP设置选项，setsockopt
  * tips:
  * socket每个套接口都有一个接收低潮限度和一个发送低潮限度
  * SO_RCVLOWAT接收低潮限度：对于TCP套接口而言，接收缓冲区中的数据必须达到规定数量，内核才通知进程"可读"。比如触发select或者epoll，返回"套接口可读"(默认为1字节)
@@ -92,8 +92,10 @@
 
 #endif
 /**
- * 让int与指针长度相同
- * tips：在64位cpu中sizeof(int)=4byte,sizeof(void*)=8byte，出现了偏差！为了保持一致性，规定intptr_t在所有cpu架构中都与void*长度相同
+ * 让int与指针变量占用字节在长度上等同
+ * 
+ * tips：
+ * 在64位cpu中sizeof(int)=4byte，sizeof(void*)=8byte，出现了偏差！为了保持一致性，POSIX规定intptr_t在所有cpu架构中都与void*长度相同
  */
 typedef intptr_t        ngx_int_t;
 typedef uintptr_t       ngx_uint_t;
@@ -118,6 +120,7 @@ typedef intptr_t        ngx_flag_t;
 
 /**
  * 字节对齐，默认大小4byte
+ * 
  * tips:
  * 平台所需：某些硬件平台只能在某些地址处取某些特定类型的数据，否则抛出硬件异常。
  * 性能所需：为了访问未对齐的内存，处理器需要作两次内存访问；而对齐的内存访问仅需要一次访问。数据结构（尤其是栈）应该尽可能地在自然边界上对齐。
@@ -127,14 +130,15 @@ typedef intptr_t        ngx_flag_t;
 #endif
 
 /**
- * 内存申请大小限制，使b总是大于a的倍数的最小值。
- * tips:
- * 一般intel为64或128（具体大小由ngx_cpuinfo函数调用了汇编代码，获取cpu二级缓存大小）
- * 使之总是cpu cache line二级缓存读写行的大小倍数，从而有利cpu取速度和效率。
- *  
+ * ngx_align：使d总是大于a倍数的最小值。使用上一般让a为系统CPU CACHE LINE大小，则d就总是其的倍数。
+ * ngx_align_ptr：使用上，一般让a为cpu字节对齐大小(ALIGNMENT)。则d就总是在对齐首地址上。
+ * 
  * a为2的n幂，有a-1为在n-1位均为1的数。~(a-1)为最后的n-1位全为0
  * d加上（a-1) 之后的值肯定要比最小的a的倍数大，再和~(a-1)相与一下之后，就把小于a的余数1部分丢掉了
  * ngx_align(d, 64)=64，只要d<64，则结果总是64。如果输入d=65，则结果为128，类推。。。
+ * 
+ * tips:
+ * 一般intel为64或128（具体大小由ngx_cpuinfo函数调用了汇编代码获取），使之总是cpu cache line二级缓存读写行的大小倍数，从而有利cpu取速度和效率。
  */
 #define ngx_align(d, a)     (((d) + (a - 1)) & ~(a - 1))
 #define ngx_align_ptr(p, a)                                                   \
@@ -145,7 +149,7 @@ typedef intptr_t        ngx_flag_t;
 
 
 /* TODO: platform specific: array[NGX_INVALID_ARRAY_INDEX] must cause SIGSEGV */
-#define NGX_INVALID_ARRAY_INDEX 0x80000000
+#define NGX_INVALID_ARRAY_INDEX 0x80000000 	//数组长度限制
 
 
 /* TODO: auto_conf: ngx_inline   inline __inline __inline__ */
@@ -157,6 +161,7 @@ typedef intptr_t        ngx_flag_t;
 #define INADDR_NONE  ((unsigned int) -1) 	//32位均为1的值。255.255.255.255，internet的有限广播地址
 #endif
 
+//主机名长度
 #ifdef MAXHOSTNAMELEN
 #define NGX_MAXHOSTNAMELEN  MAXHOSTNAMELEN
 #else

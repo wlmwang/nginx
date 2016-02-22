@@ -82,7 +82,7 @@ static ngx_command_t  ngx_core_commands[] = {
       offsetof(ngx_core_conf_t, pid),
       NULL },
 
-    { ngx_string("lock_file"),              //lock_file  /var/log/lock_file;
+    { ngx_string("lock_file"),              //lock_file  /var/log/lock_file.lock;
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
@@ -103,7 +103,7 @@ static ngx_command_t  ngx_core_commands[] = {
       offsetof(ngx_core_conf_t, debug_points),
       &ngx_debug_points },
 
-    { ngx_string("user"),                   //user www users;
+    { ngx_string("user"),                   //user www users;	#默认值为nobody
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE12,
       ngx_set_user,
       0,
@@ -124,21 +124,21 @@ static ngx_command_t  ngx_core_commands[] = {
       0,
       NULL },
 
-    { ngx_string("worker_rlimit_nofile"),   //worker_rlimit_nofile 65535;   #ngx进程打开的最多文件描述符数目
+    { ngx_string("worker_rlimit_nofile"),   //worker_rlimit_nofile 65535;   #ngx进程打开的最多文件描述符
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       0,
       offsetof(ngx_core_conf_t, rlimit_nofile),
       NULL },
 
-    { ngx_string("worker_rlimit_core"),
+    { ngx_string("worker_rlimit_core"),		//core dump
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_off_slot,
       0,
       offsetof(ngx_core_conf_t, rlimit_core),
       NULL },
 
-    { ngx_string("working_directory"),
+    { ngx_string("working_directory"),		//chdir
       NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
@@ -210,8 +210,8 @@ static char **ngx_os_environ;           //原始系统环境指针。 **environ�
  *  ngx四种启动方式：
  *  1.启动新的ngx 
  *  2.reload
- *  3.热替换nginx代码
- *  4.假启动，主要用于管理ngx系统，如发送各种信号，参看配置，测试配置等
+ *  3.热替换ngx二进制代码。系统升级。
+ *  4."假启动"，主要用于管理ngx系统，如发送各种信号，参看配置，测试配置等
  */
 int ngx_cdecl
 main(int argc, char *const *argv)
@@ -262,7 +262,7 @@ main(int argc, char *const *argv)
     if (ngx_show_version) { //-?/-h/-v/-V
         ngx_show_version_info();
 
-        if (!ngx_test_config) { //退出返回，除-t/-T参数
+        if (!ngx_test_config) { //退出返回，除又指定了-t/-T参数要求测试ngx
             return 0;
         }
     }
@@ -285,12 +285,13 @@ main(int argc, char *const *argv)
 
     /**
      *  \file ../os/unix/ngx_process.h
+     *  当前进程pid
      */
     ngx_pid = ngx_getpid();
     
     /**
      *  \file ngx_log.h|c
-     *  初始化日志为默认配置，此时的ngx_prefix取决于启动参数，默认为NULL（全局变量初始化）
+     *  初始化日志为默认配置，此时的ngx_prefix取决于启动参数，不指定则为NULL（全局变量初始化）
      */
     log = ngx_log_init(ngx_prefix);
     if (log == NULL) {
@@ -311,7 +312,7 @@ main(int argc, char *const *argv)
     init_cycle.log = log;
     /**
      *  \file ngx_cycle.h
-     *  关联到ngx cycle全局对象指针上，为启动做准备
+     *  关联到ngx cycle全局对象指针上
      */
     ngx_cycle = &init_cycle;
 
@@ -908,12 +909,12 @@ ngx_get_options(int argc, char *const *argv)
                 break;
 
             case 'p':
-                if (*p) {
+                if (*p) {	//直接跟值
                     ngx_prefix = p;
                     goto next;
                 }
 
-                if (argv[++i]) {
+                if (argv[++i]) {	//紧随其后的为值
                     ngx_prefix = (u_char *) argv[i];
                     goto next;
                 }
@@ -1019,7 +1020,7 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
      *  \file ../os/unix/ngx_alloc.h|c
      *  堆上申请内存
      */
-    ngx_argv = ngx_alloc((argc + 1) * sizeof(char *), cycle->log);
+    ngx_argv = ngx_alloc((argc + 1) * sizeof(char *), cycle->log);	//包含结尾NULL
     if (ngx_argv == NULL) {
         return NGX_ERROR;
     }
@@ -1039,7 +1040,7 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
 
 #endif
 
-    ngx_os_environ = environ;
+    ngx_os_environ = environ;	//环境变量
 
     return NGX_OK;
 }
@@ -1049,7 +1050,7 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
  *  @param [in/out] cycle cycle对象
  *  @return int NGX_OK|NGX_ERROR
  *  
- *  设置cycle一系列与启动、配置相关字段
+ *  设置cycle一系列与启动、配置参数相关字段
  */
 static ngx_int_t
 ngx_process_options(ngx_cycle_t *cycle)
@@ -1061,7 +1062,7 @@ ngx_process_options(ngx_cycle_t *cycle)
         len = ngx_strlen(ngx_prefix);
         p = ngx_prefix;
 
-        if (len && !ngx_path_separator(p[len - 1])) {
+        if (len && !ngx_path_separator(p[len - 1])) {	//结尾添加反斜线/字符
             p = ngx_pnalloc(cycle->pool, len + 1);
             if (p == NULL) {
                 return NGX_ERROR;

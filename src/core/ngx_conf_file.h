@@ -150,8 +150,7 @@ struct ngx_module_s {
     void                 *ctx;
     //该模块的指令集，指向一个ngx_command_t结构数组，数组元素为每条指令集。
     ngx_command_t        *commands;
-    //----该模块的种类，为core|event|http|mail中的一种宏标识
-    //模块的种类，NGX_CORE_MODULE|NGX_CONF_MODULE
+    //模块的种类，NGX_CORE_MODULE|NGX_CONF_MODULE|NGX_EVENT_MODULE|NGX_HTTP_MODULE|NGX_MAIL_MODULE|NGX_STREAM_MODULE
     ngx_uint_t            type;
 
     //初始化master时执行

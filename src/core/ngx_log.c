@@ -71,8 +71,8 @@ ngx_module_t  ngx_errlog_module = {
 };
 
 
-static ngx_log_t        ngx_log;        //日志对象
-static ngx_open_file_t  ngx_log_file;   //日志文件
+static ngx_log_t        ngx_log;        //全局日志对象
+static ngx_open_file_t  ngx_log_file;   //全局日志文件
 ngx_uint_t              ngx_use_stderr = 1; //初始使用标准错误
 
 
@@ -322,7 +322,7 @@ ngx_log_errno(u_char *buf, u_char *last, ngx_err_t err)
 /**
  * @param [in] prefix ngx项目目录
  * @return * 日志指针
- * 初始化日志对象，其主要工作为计算错误日志文件绝对路径并打开日志
+ * 初始化全局日志对象，其主要工作为计算错误日志文件绝对路径并打开日志
  */
 ngx_log_t *
 ngx_log_init(u_char *prefix)
@@ -399,7 +399,7 @@ ngx_log_init(u_char *prefix)
                        ngx_open_file_n " \"%s\" failed", name);
 #endif
 
-        ngx_log_file.fd = ngx_stderr;
+        ngx_log_file.fd = ngx_stderr;	//打开失败使用标准出错FD
     }
 
     if (p) {

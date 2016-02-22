@@ -48,7 +48,7 @@ ngx_init_setproctitle(ngx_log_t *log)
     size = 0;   //environs字符串总长度
 
     for (i = 0; environ[i]; i++) {
-        size += ngx_strlen(environ[i]) + 1;
+        size += ngx_strlen(environ[i]) + 1;		//environ字符串总长度
     }
 
     p = ngx_alloc(size, log);
@@ -56,11 +56,11 @@ ngx_init_setproctitle(ngx_log_t *log)
         return NGX_ERROR;
     }
 
-    ngx_os_argv_last = ngx_os_argv[0];  //argv结束地址
+    ngx_os_argv_last = ngx_os_argv[0];  //argv开始地址
 
     for (i = 0; ngx_os_argv[i]; i++) {
         if (ngx_os_argv_last == ngx_os_argv[i]) {
-            ngx_os_argv_last = ngx_os_argv[i] + ngx_strlen(ngx_os_argv[i]) + 1;
+            ngx_os_argv_last = ngx_os_argv[i] + ngx_strlen(ngx_os_argv[i]) + 1;		//argv字符总长度
         }
     }
 
@@ -77,7 +77,7 @@ ngx_init_setproctitle(ngx_log_t *log)
         }
     }
 
-    ngx_os_argv_last--;     //是原始argv和environ的总体大小
+    ngx_os_argv_last--;     //是原始argv和environ的总体大小。去除结尾一个NULL字符
 
     return NGX_OK;
 }

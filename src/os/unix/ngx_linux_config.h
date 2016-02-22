@@ -56,7 +56,7 @@
 #include <sys/utsname.h>        /* uname() */
 
 /**
- * \file ../../objs/ngx_auto_config.h
+ * \file ../../../objs/ngx_auto_config.h
  * gcc编译环境相关、configure参数相关
  */
 #include <ngx_auto_config.h>
@@ -73,10 +73,10 @@
 
 
 #if (NGX_HAVE_SENDFILE64)
-#include <sys/sendfile.h>		//amd64 直接支持sendfile 4G?
+#include <sys/sendfile.h>		//amd64 直接支持sendfile
 #else
 extern ssize_t sendfile(int s, int fd, int32_t *offset, size_t size);
-#define NGX_SENDFILE_LIMIT  0x80000000 	//sendfile大小限制 4G？
+#define NGX_SENDFILE_LIMIT  0x80000000 	//sendfile大小限制
 #endif
 
 
@@ -93,7 +93,7 @@ extern ssize_t sendfile(int s, int fd, int32_t *offset, size_t size);
 #if (NGX_HAVE_SYS_EVENTFD_H)
 #include <sys/eventfd.h>
 #endif
-#include <sys/syscall.h>
+#include <sys/syscall.h>		//系统调用库
 #if (NGX_HAVE_FILE_AIO)
 #include <linux/aio_abi.h>
 typedef struct iocb  ngx_aiocb_t;

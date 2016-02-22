@@ -12,7 +12,10 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+/**
+ *  字符串。
+ *  字符串的结束用长度来表示，而不是由’\0’来表示结束
+ */
 typedef struct {
     size_t      len;
     u_char     *data;
