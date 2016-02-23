@@ -207,11 +207,10 @@ static char **ngx_os_environ;           //原始系统环境指针。 **environ�
  *  @param [in] argv 参数数组
  *  @return int
  *  
- *  ngx四种启动方式：
+ *  ngx三种启动方式：
  *  1.启动新的ngx 
- *  2.reload
- *  3.热替换ngx二进制代码。系统升级。
- *  4."假启动"，主要用于管理ngx系统，如发送各种信号，参看配置，测试配置等
+ *  2.reload配置
+ *  3.热替换ngx二进制代码，系统升级
  */
 int ngx_cdecl
 main(int argc, char *const *argv)
@@ -337,7 +336,7 @@ main(int argc, char *const *argv)
 
     /**
      *  \file ../os/unix/ngx_posix_init.c
-     *  初始化系统相关变量 ngx_pagesize,ngx_cacheline_size,ngx_inherited_nonblocking等全局变量
+     *  初始化系统相关变量 ngx_pagesize，ngx_cacheline_size，ngx_inherited_nonblocking，ngx_os_io，ngx_linux_kern_ostype等全局变量
      */
     if (ngx_os_init(log) != NGX_OK) {
         return 1;
@@ -354,7 +353,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    //热继承全局环境变量存储的Listen SocketFD到init_cycle.listening数组
+    //热继承全局环境变量存储的Listen SocketFD到init_cycle.listening数组中
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
@@ -641,7 +640,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 
     /**
      *  \file ngx_connection.h|c
-     *  检测|设置|过滤fd
+     *  设置cycle->listening数组
      */
     return ngx_set_inherited_sockets(cycle);
 }

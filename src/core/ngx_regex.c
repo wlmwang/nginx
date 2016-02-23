@@ -372,7 +372,12 @@ ngx_regex_module_init(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return ngx_core_conf_t *  ngx core 命令集结构体
+ *  
+ *  创建regex核心配置为 未初始化状态
+ */
 static void *
 ngx_regex_create_conf(ngx_cycle_t *cycle)
 {

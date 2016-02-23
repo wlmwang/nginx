@@ -101,12 +101,18 @@ uint32_t  ngx_crc32_table256[] = {
 
 uint32_t *ngx_crc32_table_short = ngx_crc32_table16;
 
-
+/**
+ * 初始化一个循环冗余校验表，后续的循环冗余校验将采用高效的查表法
+ *
+ * tips：
+ * CRC校验实用程序库在数据存储和数据通讯领域，为了保证数据的正确，采用的检错手段
+ */
 ngx_int_t
 ngx_crc32_table_init(void)
 {
     void  *p;
 
+    //首地址是否已经对齐在cache line上
     if (((uintptr_t) ngx_crc32_table_short
           & ~((uintptr_t) ngx_cacheline_size - 1))
         == (uintptr_t) ngx_crc32_table_short)

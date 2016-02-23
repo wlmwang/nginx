@@ -130,7 +130,7 @@ ngx_clone_listening(ngx_conf_t *cf, ngx_listening_t *ls)
  *  @param [in/out] cycle cycle对象
  *  @return int NGX_OK|NGX_ERROR
  *  
- *  对cycle.listening检测|设置|过滤fd（无效fd设置ignore标识位）
+ *  设置cycle.listening数组（socket地址，缓冲大小，deferred_accept，reuseport，ignore）
  */
 ngx_int_t
 ngx_set_inherited_sockets(ngx_cycle_t *cycle)
@@ -139,13 +139,6 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
     ngx_uint_t                 i;
     ngx_listening_t           *ls;
     socklen_t                  olen;
-/**
- * tips:
- * TCP_DEFER_ACCEPT （Linux 2.4以上）将accept()的处理时机推迟到三次握手成功完成后的连接上有可读数据后，然后才向 listening socket 的监听者投递读事件。
- * 这样一来，一旦accept()成功，ngx不用等待新接入连接上有读事件发生，便可以马上从其中读取请 求数据。这样，就提高了请求的处理效率。
- *
- * 原理：要求三次握手过程的最后一握为实际数据，这时此连接才真正进行 ESTABLISHED 状态
- */
 #if (NGX_HAVE_DEFERRED_ACCEPT || NGX_HAVE_TCP_FASTOPEN)
     ngx_err_t                  err;
 #endif
@@ -156,7 +149,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
     int                        timeout;
 #endif
 #if (NGX_HAVE_REUSEPORT)
-    int                        reuseport;
+    int                        reuseport;   //端口重用
 #endif
 
     ls = cycle->listening.elts;
@@ -214,7 +207,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         /**
          *  \file ngx_inet.h|c
-         *  设置socket地址字符串形式 //127.0.0.1:80
+         *  设置socket地址字符串形式 #127.0.0.1:80
          */
         len = ngx_sock_ntop(ls[i].sockaddr, ls[i].socklen,
                             ls[i].addr_text.data, len, 1);
@@ -283,9 +276,10 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         /**
          *  tips:
-         *  Linux kernel 3.9
-         *  端口复用，避免重复绑定出错(SO_REUSEADDR)。支持多个进程或者线程绑定到同一端口
-         *  每一个进程或线程拥有自己的服务器套接字，互不干扰。内核层面的负载均衡
+         *  SO_REUSEPORT选项（Linux kernel 3.9支持）
+         *  端口复用技术，支持多个进程或者线程绑定到同一端口上，但ip必须不同。
+         *  此选项也可以让多个进程同时绑定到 0.0.0.0:80 与 127.0.0.1::80 两个socket，每个进程或线程拥有自己的服务器套接字，互不干扰。内核层面的负载均衡
+         *  此选项还可以用来让已绑定的socket，但又处于TIME_WAIT状态下的socket被复用。一般作为重启服务需使用（默认等待2分钟）。SO_REUSEADDR也可以达到此效果
          */
         if (getsockopt(ls[i].fd, SOL_SOCKET, SO_REUSEPORT,
                        (void *) &reuseport, &olen)
@@ -307,9 +301,10 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
         /**
          * tips:
-         * Linux kernel 3.7.1
-         * 对TCP的一个增强,简而言之就是在3次握手的时候也用来交换数据
-         * chrome有些版本也支持（client必须要支持），默认关闭
+         * TCP_FASTOPEN选项（Linux kernel 3.7.1支持），最初是Google针对http的优化。
+         * 在tcp握手的第一阶段，SYNC_RECEIVED 状态后，服务端就可以acceptable了，即此时的accept调用就可以返回。当然一般也只是交换cookie。
+         * 
+         * 需客户端支持，如chrome有些版本支持，默认关闭
          */
         if (getsockopt(ls[i].fd, IPPROTO_TCP, TCP_FASTOPEN,
                        (void *) &ls[i].fastopen, &olen)
@@ -338,7 +333,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
          * 保存在对应项的accept_filter中； 
          * 
          * tips:
-         * SO_ACCEPTFILTER 是socket上的输入过滤，他在接手前，将过滤掉传入流套接字的链接，
+         * SO_ACCEPTFILTER 是socket上的输入过滤，他在接手前，将过滤掉传入流套接字的链接
          * 功能是服务器不等待最后的ACK包而仅仅等待携带数据负载的包
          */
         if (getsockopt(ls[i].fd, SOL_SOCKET, SO_ACCEPTFILTER, &af, &olen)
@@ -374,12 +369,16 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
         timeout = 0;
         olen = sizeof(int);
 
-        /** 
-         * 如操作系统TCP层支持TCP_DEFER_ACCEPT，则试图获取TCP_DEFER_ACCEPT的timeout值，timeout大于0时，则将socket对应deferred_accept标志设为1
-         *
+        /**
          * tips:
-         * 支持deffered accept的操作系统，ngx会设置这个参数来增强功能，设置了这个参数，在accept的时候，
-         * 只有当实际收到了数据，才唤醒在accept等待的进程，可以减少一些无聊的上下文切换
+         * TCP_DEFER_ACCEPT选项（Linux 2.4以上支持）
+         * 将accept()的处理时机推迟到三次握手成功完成后的连接上有可读数据后，才唤醒在accept或者epoll等待的进程，向其投递读事件。
+         * 这样一来，一旦事件触发，ngx不用等待新接入连接上有读事件发生，便可以马上从其中读取请求数据，提高了请求的处理效率。
+         * 
+         * 注意：由于这个socket在server端还是处于syn_recved，因此此时就会被内核的syn_ack定时器所控制，对syn ack进行重传，
+         * 而重传次数为设置TCP_DEFER_ACCEPT传进去的值以及TCP_SYNCNT选项，proc文件系统的tcp_synack_retries一起来决定的。当然超时了，此连接也就被close了
+         * 
+         * 原理：要求三次握手后，第一次实际数据交换，这时server端连接才真正进入 ESTABLISHED 状态
          */
         if (getsockopt(ls[i].fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &timeout, &olen)
             == -1)
@@ -396,6 +395,10 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
             continue;
         }
 
+        /**
+         * timeout大于0时，则将socket对应deferred_accept标志设为1
+         * 如timeout 5秒后，如果客户端不发数据，则需close此连接。
+         */
         if (olen < sizeof(int) || timeout == 0) {
             continue;
         }

@@ -384,7 +384,12 @@ ngx_thread_pool_handler(ngx_event_t *ev)
     }
 }
 
-
+/**
+ *  @param [in] cycle cycle对象
+ *  @return ngx_core_conf_t *  ngx core 命令集结构体
+ *  
+ *  创建线程核心配置为 未初始化状态
+ */
 static void *
 ngx_thread_pool_create_conf(ngx_cycle_t *cycle)
 {
@@ -395,6 +400,11 @@ ngx_thread_pool_create_conf(ngx_cycle_t *cycle)
         return NULL;
     }
 
+    //
+    /**
+     * \file ngx_thread_pool.c
+     * pool 默认4个数组
+     */
     if (ngx_array_init(&tcf->pools, cycle->pool, 4,
                        sizeof(ngx_thread_pool_t *))
         != NGX_OK)

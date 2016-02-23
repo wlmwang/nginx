@@ -74,7 +74,7 @@ ngx_conf_param(ngx_conf_t *cf)
     ngx_buf_t         b;
     ngx_conf_file_t   conf_file;
 
-    param = &cf->cycle->conf_param; //-g参数 param类型为ngx_array数组
+    param = &cf->cycle->conf_param; //-g参数 字符串
 
     if (param->len == 0) {
         return NGX_CONF_OK;
@@ -90,11 +90,12 @@ ngx_conf_param(ngx_conf_t *cf)
     b.end = b.last;
     b.temporary = 1;
 
-    //处理-g参数配置，不需要配置文件。文件相关置为无效值，buffer指向conf_param的buf内存地址
+    //处理-g参数配置，不需要配置文件。文件相关置为无效值
     conf_file.file.fd = NGX_INVALID_FILE;
     conf_file.file.name.data = NULL;
     conf_file.line = 0;
 
+    //buffer指向buf内存地址
     cf->conf_file = &conf_file;
     cf->conf_file->buffer = &b;     //存放配置项数据
 

@@ -33,7 +33,7 @@ static ngx_connection_t  dumb;
 /* STUB */
 
 /**
- *  @param [in] old_cycle 主函数传递cycle对象指针。注意该对象存在在main函数栈上
+ *  @param [in] old_cycle 主函数传递cycle对象指针。
  *  @return ngx_cycle_t * 返回新的cycle对象指针
  *  
  *  初始化ngx cycle
@@ -256,7 +256,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
          *  -../../http/ngx_http.c|
          *  -../../mail/ngx_mail.c|
          *  -../../stream/ngx_stream.c|
-         *  #../../misc/ngx_google_perftools_module.c
+         *  -../../misc/ngx_google_perftools_module.c
          *
          * 创建配置结构体，主要是初始化配置为预设值，为配置分配内存
          */
@@ -292,7 +292,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-
+    //-g参数ngx_conf_t属性
     conf.ctx = cycle->conf_ctx;
     conf.cycle = cycle;
     conf.pool = pool;
