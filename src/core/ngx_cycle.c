@@ -297,7 +297,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     conf.cycle = cycle;
     conf.pool = pool;
     conf.log = log;
-    conf.module_type = NGX_CORE_MODULE; //模块种类
+    conf.module_type = NGX_CORE_MODULE; //模块种类  配置模块
     conf.cmd_type = NGX_MAIN_CONF;  //指令的类型
 
 #if 0
@@ -377,19 +377,20 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             goto failed;
         }
 
-    } else if (!ngx_is_init_cycle(old_cycle)) {     //#define ngx_is_init_cycle(cycle) (cycle->conf_ctx == NULL)
+        /**
+         * 首次ngx_init_cycle调用，不会创建pid文件。因为需要写入守护进程pid，而此时我们是不知道守护进程pid的
+         * #define ngx_is_init_cycle(cycle) (cycle->conf_ctx == NULL)
+         */
+    } else if (!ngx_is_init_cycle(old_cycle)) {
 
         /*
          * we do not create the pid file in the first ngx_init_cycle() call
          * because we need to write the demonized process pid
          */
-
-        /**
-         * 首次ngx_init_cycle调用，不会创建pid文件。因为需要写入守护进程pid，而此时我们是不知道守护进程pid的。
-         * main会创建pid文件
-         */
+        
         old_ccf = (ngx_core_conf_t *) ngx_get_conf(old_cycle->conf_ctx,
                                                    ngx_core_module);
+        //更换pid文件名
         if (ccf->pid.len != old_ccf->pid.len
             || ngx_strcmp(ccf->pid.data, old_ccf->pid.data) != 0)
         {
@@ -580,7 +581,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     if (old_cycle->listening.nelts) {
         ls = old_cycle->listening.elts;
         for (i = 0; i < old_cycle->listening.nelts; i++) {
-            ls[i].remain = 0;   //全部初始化为0，表示不关闭。让新的cycle继承old cycle
+            ls[i].remain = 0;   //全部初始化为0，表示关闭
         }
 
         nls = cycle->listening.elts;

@@ -149,7 +149,7 @@ typedef struct {
      ngx_str_t                pid;
      ngx_str_t                oldpid;
 
-     ngx_array_t              env;
+     ngx_array_t              env;  //配置文件中env参数
      char                   **environment;
 } ngx_core_conf_t;
 

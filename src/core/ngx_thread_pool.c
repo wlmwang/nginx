@@ -415,7 +415,13 @@ ngx_thread_pool_create_conf(ngx_cycle_t *cycle)
     return tcf;
 }
 
-
+/**
+ *  @param [in/out] cycle cycle对象
+ *  @param [in/out] ngx_core_conf_t conf对象
+ *  @return char *
+ *  
+ *  初始化线程核心配置
+ */
 static char *
 ngx_thread_pool_init_conf(ngx_cycle_t *cycle, void *conf)
 {

@@ -1208,15 +1208,21 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
 {
     ngx_core_conf_t  *ccf = conf;
 
+    /**
+     * \file ngx_conf_file.h
+     */
     ngx_conf_init_value(ccf->daemon, 1);
     ngx_conf_init_value(ccf->master, 1);  //默认值为1
-    ngx_conf_init_msec_value(ccf->timer_resolution, 0);   //无默认值
+    ngx_conf_init_msec_value(ccf->timer_resolution, 0);   //默认为0
 
     ngx_conf_init_value(ccf->worker_processes, 1);  //默认值为1
     ngx_conf_init_value(ccf->debug_points, 0);
 
 #if (NGX_HAVE_CPU_AFFINITY)
 
+    /**
+     * cpu_affinity_n = worker_processes 必须要相同
+     */
     if (ccf->cpu_affinity_n
         && ccf->cpu_affinity_n != 1
         && ccf->cpu_affinity_n != (ngx_uint_t) ccf->worker_processes)
@@ -1373,7 +1379,7 @@ ngx_set_user(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return "is duplicate";
     }
 
-    if (geteuid() != 0) {
+    if (geteuid() != 0) {   //有效用户不能为root
         ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                            "the \"user\" directive makes sense only "
                            "if the master process runs "
@@ -1412,9 +1418,7 @@ ngx_set_user(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 #endif
 }
 
-/**
- *  设置环境变量env参数
- */
+//设置配置env参数
 static char *
 ngx_set_env(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1444,7 +1448,7 @@ ngx_set_env(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
+//进程优先级
 static char *
 ngx_set_priority(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1478,13 +1482,13 @@ ngx_set_priority(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     if (minus) {
-        ccf->priority = -ccf->priority;
+        ccf->priority = -ccf->priority;   //负数有提升进程优先级，只有root可以
     }
 
     return NGX_CONF_OK;
 }
 
-
+//cpu绑定
 static char *
 ngx_set_cpu_affinity(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1576,7 +1580,7 @@ ngx_get_cpu_affinity(ngx_uint_t n)
     return ccf->cpu_affinity[ccf->cpu_affinity_n - 1];
 }
 
-
+//设置worker数量
 static char *
 ngx_set_worker_processes(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1591,7 +1595,7 @@ ngx_set_worker_processes(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     value = cf->args->elts;
 
-    if (ngx_strcmp(value[1].data, "auto") == 0) {
+    if (ngx_strcmp(value[1].data, "auto") == 0) {   //系统cpu个数
         ccf->worker_processes = ngx_ncpu;
         return NGX_CONF_OK;
     }
