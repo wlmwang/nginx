@@ -74,7 +74,7 @@ ngx_conf_param(ngx_conf_t *cf)
     ngx_buf_t         b;
     ngx_conf_file_t   conf_file;
 
-    param = &cf->cycle->conf_param; //-g参数 param类型为ngx_array数组
+    param = &cf->cycle->conf_param; //-g参数 字符串
 
     if (param->len == 0) {
         return NGX_CONF_OK;
@@ -90,11 +90,12 @@ ngx_conf_param(ngx_conf_t *cf)
     b.end = b.last;
     b.temporary = 1;
 
-    //处理-g参数配置，不需要配置文件。文件相关置为无效值，buffer指向conf_param的buf内存地址
+    //处理-g参数配置，不需要配置文件。文件相关置为无效值
     conf_file.file.fd = NGX_INVALID_FILE;
     conf_file.file.name.data = NULL;
     conf_file.line = 0;
 
+    //buffer指向buf内存地址
     cf->conf_file = &conf_file;
     cf->conf_file->buffer = &b;     //存放配置项数据
 
@@ -110,7 +111,11 @@ ngx_conf_param(ngx_conf_t *cf)
  *  @param [in] filename 配置文件名
  *  @return char * NULL
  *  
- *  配置文件解析
+ *  配置文件解析。
+ *  三种方式：
+ *  filename配置文件解析
+ *  *cf对象自身附带的文件式缓冲配置
+ *  *cf对象自身附带的内存式缓冲配置（-g 参数。字符串配置解析）
  */
 char *
 ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
@@ -125,8 +130,8 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
     ngx_conf_dump_t  *cd;
     enum {
         parse_file = 0,     //filename配置文件解析
-        parse_block,        //*cf对象自身附带的文件式缓冲配置文件路径
-        parse_param         //-g参数 字符串配置解析
+        parse_block,        //*cf对象自身附带的文件式缓冲
+        parse_param         //*cf对象自身附带的内存式缓冲（-g 参数。字符串配置解析）
     } type;
 
 #if (NGX_SUPPRESS_WARN)
@@ -225,11 +230,11 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             cf->conf_file->dump = NULL;
         }
 
-    } else if (cf->conf_file->file.fd != NGX_INVALID_FILE) {    //*cf对象自身配置文件
+    } else if (cf->conf_file->file.fd != NGX_INVALID_FILE) {
 
         type = parse_block;
 
-    } else {    //-g
+    } else {
         type = parse_param;
     }
 
@@ -310,7 +315,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             goto failed;
         }
 
-        //解析配置行
+        //解析配置行（调用对应command的set函数）
         rc = ngx_conf_handler(cf, rc);
 
         if (rc == NGX_ERROR) {
@@ -465,7 +470,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                 }
             }
 
-            rv = cmd->set(cf, cmd, conf);
+            rv = cmd->set(cf, cmd, conf);   //执行每个ngx_command_t设置函数
 
             if (rv == NGX_CONF_OK) {
                 return NGX_OK;

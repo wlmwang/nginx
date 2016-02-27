@@ -493,7 +493,7 @@ ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
  *  @param [in] cycle cycle对象
  *  @return NGX_OK
  *  
- *  初始化event模块
+ *  初始化event模块（主要用途：共享锁创建）
  */
 static ngx_int_t
 ngx_event_module_init(ngx_cycle_t *cycle)
@@ -516,7 +516,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
-    ngx_timer_resolution = ccf->timer_resolution;   //超时检测时间
+    ngx_timer_resolution = ccf->timer_resolution;   //超时检测时间，默认值为0
 
 #if !(NGX_WIN32)
     {
@@ -1005,7 +1005,7 @@ ngx_send_lowat(ngx_connection_t *c, size_t lowat)
     return NGX_OK;
 }
 
-
+//event block配置模块
 static char *
 ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1070,6 +1070,7 @@ ngx_events_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return rv;
     }
 
+    //子集
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_EVENT_MODULE) {
             continue;

@@ -207,11 +207,10 @@ static char **ngx_os_environ;           //原始系统环境指针。 **environ�
  *  @param [in] argv 参数数组
  *  @return int
  *  
- *  ngx四种启动方式：
+ *  ngx三种启动方式：
  *  1.启动新的ngx 
- *  2.reload
- *  3.热替换ngx二进制代码。系统升级。
- *  4."假启动"，主要用于管理ngx系统，如发送各种信号，参看配置，测试配置等
+ *  2.reload配置
+ *  3.热替换ngx二进制代码，系统升级
  */
 int ngx_cdecl
 main(int argc, char *const *argv)
@@ -337,7 +336,7 @@ main(int argc, char *const *argv)
 
     /**
      *  \file ../os/unix/ngx_posix_init.c
-     *  初始化系统相关变量 ngx_pagesize,ngx_cacheline_size,ngx_inherited_nonblocking等全局变量
+     *  初始化系统相关变量 ngx_pagesize，ngx_cacheline_size，ngx_inherited_nonblocking，ngx_os_io，ngx_linux_kern_ostype等全局变量
      */
     if (ngx_os_init(log) != NGX_OK) {
         return 1;
@@ -354,7 +353,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    //热继承全局环境变量存储的Listen SocketFD到init_cycle.listening数组
+    //热继承全局环境变量存储的Listen SocketFD到init_cycle.listening数组中
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
@@ -641,7 +640,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 
     /**
      *  \file ngx_connection.h|c
-     *  检测|设置|过滤fd
+     *  设置cycle->listening数组
      */
     return ngx_set_inherited_sockets(cycle);
 }
@@ -1209,15 +1208,21 @@ ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf)
 {
     ngx_core_conf_t  *ccf = conf;
 
+    /**
+     * \file ngx_conf_file.h
+     */
     ngx_conf_init_value(ccf->daemon, 1);
     ngx_conf_init_value(ccf->master, 1);  //默认值为1
-    ngx_conf_init_msec_value(ccf->timer_resolution, 0);   //无默认值
+    ngx_conf_init_msec_value(ccf->timer_resolution, 0);   //默认为0
 
     ngx_conf_init_value(ccf->worker_processes, 1);  //默认值为1
     ngx_conf_init_value(ccf->debug_points, 0);
 
 #if (NGX_HAVE_CPU_AFFINITY)
 
+    /**
+     * cpu_affinity_n = worker_processes 必须要相同
+     */
     if (ccf->cpu_affinity_n
         && ccf->cpu_affinity_n != 1
         && ccf->cpu_affinity_n != (ngx_uint_t) ccf->worker_processes)
@@ -1374,7 +1379,7 @@ ngx_set_user(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return "is duplicate";
     }
 
-    if (geteuid() != 0) {
+    if (geteuid() != 0) {   //有效用户不能为root
         ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                            "the \"user\" directive makes sense only "
                            "if the master process runs "
@@ -1413,9 +1418,7 @@ ngx_set_user(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 #endif
 }
 
-/**
- *  设置环境变量env参数
- */
+//设置配置env参数
 static char *
 ngx_set_env(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1445,7 +1448,7 @@ ngx_set_env(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-
+//进程优先级
 static char *
 ngx_set_priority(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1479,13 +1482,13 @@ ngx_set_priority(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     if (minus) {
-        ccf->priority = -ccf->priority;
+        ccf->priority = -ccf->priority;   //负数有提升进程优先级，只有root可以
     }
 
     return NGX_CONF_OK;
 }
 
-
+//cpu绑定
 static char *
 ngx_set_cpu_affinity(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1577,7 +1580,7 @@ ngx_get_cpu_affinity(ngx_uint_t n)
     return ccf->cpu_affinity[ccf->cpu_affinity_n - 1];
 }
 
-
+//设置worker数量
 static char *
 ngx_set_worker_processes(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1592,7 +1595,7 @@ ngx_set_worker_processes(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     value = cf->args->elts;
 
-    if (ngx_strcmp(value[1].data, "auto") == 0) {
+    if (ngx_strcmp(value[1].data, "auto") == 0) {   //系统cpu个数
         ccf->worker_processes = ngx_ncpu;
         return NGX_CONF_OK;
     }
