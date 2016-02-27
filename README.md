@@ -17,10 +17,15 @@ gcc编译：auto、makefile等。
 
 nginx/
 		auto/			#自动化脚本
+		
 		conf/			#配置模板
+		
 		contrib/
+		
 		docs/
+		
 		misc/
+		
 		objs/			#环境相关，由auto生成
 		src/			#源代码
 			core/		#核心，入口
