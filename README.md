@@ -1,9 +1,7 @@
-# nginx
-  An official read-only mirror of http://hg.nginx.org/nginx/ which is updated hourly. Pull requests on GitHub cannot be accepted and will be automatically closed.The proper way to submit changes to nginx is via the nginx development mailing list, see http://nginx.org/en/docs/contributing_changes.html
-
 #导读
 
     文档基于Nginx官方Git的release1.9.9（2015-12-09）版本描述。
+    原始git为 https://github.com/nginx/nginx.git
 
 分析此版本静态代码和在环境为gcc 4.1.2，64位Linux2.6.18(Red Hat)下不带任何参数configure生成的动态代码（objs目录）。
 
